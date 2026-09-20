@@ -1,0 +1,1146 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Olympus RTP Simulator</title>
+<style>
+  :root{
+    --bg:#0c1014; --panel:#141a21; --panel2:#1b232c; --line:#2a333f;
+    --ink:#e8e3d6; --muted:#8a93a3; --faint:#5d6573;
+    --gold:#f0b43c; --cold:#5fb0e0; --normal:#d8be7e; --hot:#e8693c; --new:#7ed6a5;
+    --good:#6fc28a; --warn:#e8693c;
+    --mono:ui-monospace,"SF Mono",Menlo,Consolas,monospace;
+    --sans:ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:radial-gradient(1200px 600px at 70% -10%,#16202b 0,var(--bg) 60%);
+    color:var(--ink);font-family:var(--sans);font-size:14px;line-height:1.5;-webkit-font-smoothing:antialiased}
+  .wrap{max-width:1180px;margin:0 auto;padding:28px 20px 80px}
+  /* let the four table cards sit on one row when the window is wide */
+  @media(min-width:1320px){.wrap{max-width:96vw}}
+  @media(min-width:1750px){.wrap{max-width:1700px}}
+  header{display:flex;align-items:baseline;gap:14px;flex-wrap:wrap;border-bottom:1px solid var(--line);padding-bottom:16px}
+  .bolt{color:var(--gold);font-size:26px;line-height:1}
+  h1{font-size:22px;letter-spacing:.5px;margin:0;font-weight:700}
+  .sub{color:var(--muted);font-size:13px}
+  .eyebrow{font-family:var(--mono);font-size:11px;letter-spacing:.18em;text-transform:uppercase;color:var(--faint)}
+  .controls{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin:18px 0 10px}
+  button{font-family:var(--sans);font-size:14px;font-weight:600;border:1px solid var(--line);
+    background:var(--panel2);color:var(--ink);padding:9px 16px;border-radius:8px;cursor:pointer;transition:.12s}
+  button:hover{border-color:var(--gold);color:#fff}
+  button.primary{background:var(--gold);color:#1a1206;border-color:var(--gold)}
+  button.primary:hover{filter:brightness(1.08)}
+  button.sm{padding:6px 12px;font-size:12px;font-weight:600}
+  button:disabled{opacity:.5;cursor:default;border-color:var(--line);color:var(--muted)}
+  select,input{font-family:var(--mono);font-size:13px;background:#0f151b;color:var(--ink);
+    border:1px solid var(--line);border-radius:6px;padding:6px 8px}
+  input[type=number]{width:74px;text-align:right}
+  select:focus,input:focus,textarea:focus{outline:none;border-color:var(--gold)}
+  label.inl{display:inline-flex;align-items:center;gap:7px;color:var(--muted);font-size:12px}
+  .bar{height:5px;background:#0f151b;border-radius:3px;overflow:hidden;margin-top:8px;border:1px solid var(--line)}
+  .bar>i{display:block;height:100%;background:var(--gold);width:0;transition:width .1s linear}
+  .globals{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:14px 16px;margin:14px 0}
+  .sect>summary{cursor:pointer;list-style:none;font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);user-select:none;display:flex;align-items:center;gap:8px}
+  .sect>summary::-webkit-details-marker{display:none}
+  .sect>summary::before{content:'\25BE';font-size:10px;transition:transform .15s;color:var(--gold)}
+  .sect:not([open])>summary::before{transform:rotate(-90deg)}
+  .sect:not([open]){padding-bottom:12px}
+  .sect[open]>summary{margin-bottom:12px}
+  .grid-g{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px 18px}
+  .fld{display:flex;flex-direction:column;gap:4px}
+  .fld span{font-size:11px;color:var(--muted)}
+  details{margin-top:10px;border-top:1px dashed var(--line);padding-top:10px}
+  summary{cursor:pointer;color:var(--muted);font-size:12px;font-family:var(--mono);letter-spacing:.05em}
+  .pt{display:grid;grid-template-columns:auto repeat(3,1fr);gap:4px 8px;margin-top:10px;font-size:12px}
+  .pt .h{color:var(--faint);font-family:var(--mono);font-size:10px;text-transform:uppercase;letter-spacing:.1em}
+  .pt input{width:100%}
+  #cfgbox{width:100%;height:120px;font-family:var(--mono);font-size:11px;background:#0f151b;color:var(--ink);
+    border:1px solid var(--line);border-radius:8px;padding:8px;margin-top:6px;resize:vertical}
+  .cols{display:grid;grid-template-columns:repeat(auto-fit,minmax(255px,1fr));gap:14px;margin-top:8px}
+  .dual{display:grid;grid-template-columns:1fr 1fr;gap:16px 26px}
+  @media(max-width:900px){.dual{grid-template-columns:1fr}}
+  .tbl{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:0;overflow:hidden}
+  .tbl.cold{box-shadow:inset 0 2px 0 var(--cold)} .tbl.normal{box-shadow:inset 0 2px 0 var(--normal)} .tbl.hot{box-shadow:inset 0 2px 0 var(--hot)} .tbl.new{box-shadow:inset 0 2px 0 var(--new)}
+  .th{display:flex;align-items:center;justify-content:space-between;padding:12px 14px;background:var(--panel2);border-bottom:1px solid var(--line)}
+  .tname{font-weight:700;letter-spacing:.1em;font-size:13px;text-transform:uppercase}
+  .cold .tname{color:var(--cold)} .normal .tname{color:var(--normal)} .hot .tname{color:var(--hot)} .new .tname{color:var(--new)}
+  .readout{padding:14px;border-bottom:1px solid var(--line);text-align:center}
+  .rtp{font-family:var(--mono);font-size:38px;font-weight:700;letter-spacing:-1px;line-height:1}
+  .rtp small{font-size:16px;color:var(--muted);font-weight:400}
+  .rtp.pending{color:var(--faint)}
+  .gauge{height:6px;background:#0f151b;border:1px solid var(--line);border-radius:4px;margin:12px 4px 4px;position:relative}
+  .gauge>i{position:absolute;top:-1px;bottom:-1px;width:2px;background:var(--ink)}
+  .gauge>.tick{position:absolute;top:-4px;bottom:-4px;width:1px;background:var(--gold);left:calc((95 - 40)/(160 - 40)*100%)}
+  .meta{display:flex;justify-content:space-around;padding:10px 8px;border-bottom:1px solid var(--line);font-family:var(--mono)}
+  .meta div{text-align:center}
+  .meta b{display:block;font-size:16px}
+  .meta span{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.08em}
+  .tiers{padding:8px 14px 12px;border-bottom:1px solid var(--line)}
+  .trow{display:grid;grid-template-columns:86px 72px 1fr;gap:8px;align-items:baseline;font-family:var(--mono);font-size:12px;padding:3px 0}
+  .trow .tl{color:var(--muted)}
+  .trow b{font-size:14px}
+  .trow .tn{font-size:10px;color:var(--faint);text-align:right}
+  .breakdown{padding:12px 14px;border-bottom:1px solid var(--line)}
+  .brow{display:flex;align-items:center;gap:8px;margin:5px 0;font-size:12px;font-family:var(--mono)}
+  .brow .lbl{width:62px;color:var(--muted)}
+  .brow .track{flex:1;height:9px;background:#0f151b;border-radius:3px;overflow:hidden;border:1px solid var(--line)}
+  .brow .track>i{display:block;height:100%}
+  .brow .val{width:54px;text-align:right}
+  .extremes{padding:8px 14px 12px;border-bottom:1px solid var(--line)}
+  .exrow{display:flex;justify-content:space-between;align-items:baseline;font-family:var(--mono);font-size:12px;padding:3px 0}
+  .exrow span{color:var(--muted)}
+  .extremes .exrow b{color:var(--gold);font-size:14px}
+  .avgblock .exrow b{color:var(--cold)}
+  .wtbl{padding:8px 14px 14px}
+  .wrow{display:grid;grid-template-columns:1fr 78px 52px;gap:6px;align-items:center;padding:2px 0}
+  .wrow .nm{font-size:12px}
+  .wrow .pc{font-family:var(--mono);font-size:11px;color:var(--muted);text-align:right}
+  .wrow.head{color:var(--faint);font-family:var(--mono);font-size:10px;text-transform:uppercase;letter-spacing:.08em;border-bottom:1px solid var(--line);padding-bottom:6px;margin-bottom:4px}
+  .wrow.sum{border-top:1px solid var(--line);margin-top:6px;padding-top:6px;color:var(--muted);font-family:var(--mono);font-size:11px}
+  .seg{font-family:var(--mono);font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--faint);padding:10px 14px 2px}
+  .contrib{padding:4px 14px 12px}
+  .crow{display:grid;grid-template-columns:64px 1fr 44px;gap:7px;align-items:center;font-size:11px;font-family:var(--mono);margin:3px 0}
+  .crow .track{height:7px;background:#0f151b;border-radius:2px;overflow:hidden;border:1px solid var(--line)}
+  .crow .track>i{display:block;height:100%;background:var(--gold)}
+  .note{color:var(--muted);font-size:12px;margin-top:18px;border-top:1px solid var(--line);padding-top:14px}
+  .note code{font-family:var(--mono);color:var(--gold);font-size:11px}
+  @media(max-width:560px){.cols{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <span class="bolt">&#9889;</span>
+    <h1 data-i18n="Olympus RTP Simulator">Olympus RTP Simulator</h1>
+    <span class="sub" data-i18n="Monte-Carlo balancing tool with SN-1 safety net &mdash; runs entirely in your browser.">Monte-Carlo balancing tool with SN-1 safety net &mdash; runs entirely in your browser.</span>
+    <span style="font:600 11px/1 var(--mono);letter-spacing:.14em;text-transform:uppercase;color:#1a1206;background:var(--gold);padding:5px 10px;border-radius:99px">Demo build</span>
+    <span class="sub" style="flex-basis:100%">Illustrative configuration for portfolio review &mdash; weights, paytable and governor thresholds are invented, not production values.</span>
+  </header>
+
+  <div class="controls">
+    <button class="primary" id="run" data-i18n="Run simulation">Run simulation</button>
+    <button id="setdef" data-i18n="Set as default">Set as default</button>
+    <button id="reset" data-i18n="Reset to defaults">Reset to defaults</button>
+    <button id="langBtn" title="Language / 语言">中文</button>
+    <label class="inl"><span data-i18n="Spins / table / tier">Spins / table / tier</span>
+      <select id="N">
+        <option value="50000" selected data-i18n="50k (fast)">50k (fast)</option>
+        <option value="200000" data-i18n="200k (balanced)">200k (balanced)</option>
+        <option value="500000" data-i18n="500k (precise)">500k (precise)</option>
+        <option value="1000000" data-i18n="1M (slow)">1M (slow)</option>
+      </select>
+    </label>
+    <label class="inl"><input type="checkbox" id="autobal" checked style="width:auto"> <span data-i18n="auto-balance to 10,000 (Crown, Scatter, 8&times;, 10&times; locked)">auto-balance to 10,000 (Crown, Scatter, 8&times;, 10&times; locked)</span></label>
+    <span class="eyebrow" id="status" data-i18n="idle">idle</span>
+    <div class="bar" style="flex:1;min-width:120px"><i id="prog"></i></div>
+  </div>
+
+  <details class="globals sect" open>
+    <summary data-i18n="Shared parameters (all tables)">Shared parameters (all tables)</summary>
+    <div class="grid-g">
+      <label class="fld"><span data-i18n="FS initial award">FS initial award</span><input type="number" id="fsAward" value="10" min="0"></label>
+      <label class="fld"><span data-i18n="FS retrigger scatters">FS retrigger scatters</span><input type="number" id="fsRetThr" value="3" min="1"></label>
+      <label class="fld"><span data-i18n="FS retrigger amount">FS retrigger amount</span><input type="number" id="fsRetAmt" value="5" min="0"></label>
+      <label class="fld"><span data-i18n="FS multiplier cap">FS multiplier cap</span><input type="number" id="fsCap" value="50" min="1"></label>
+      <label class="fld"><span data-i18n="Max cascade depth">Max cascade depth</span><input type="number" id="maxDepth" value="20" min="1"></label>
+      <label class="fld"><span data-i18n="SN-1 max win (diamonds)">SN-1 max win (diamonds)</span><input type="number" id="snCap" value="250000" min="1"></label>
+      <label class="fld"><span data-i18n="Orb values">Orb values</span><input type="text" id="orbVals" value="2,3,4,5,6,8,10" style="width:220px;text-align:left"></label>
+    </div>
+    <details>
+      <summary data-i18n="Advanced &mdash; symbol paytable (multiplier of bet, by match count)">Advanced &mdash; symbol paytable (multiplier of bet, by match count)</summary>
+      <div class="pt" id="ptbl"></div>
+      <div class="pt" id="sctbl" style="grid-template-columns:auto 1fr;max-width:320px"></div>
+    </details>
+  </details>
+
+  <details class="globals sect" open>
+    <summary data-i18n="New-Player Welcome &amp; Win Streak Assurance">New-Player Welcome &amp; Win Streak Assurance</summary>
+    <div class="dual">
+      <div>
+        <div class="eyebrow" style="margin-bottom:8px" data-i18n="New-Player Welcome (NEW table) &mdash; standing account flag, not an RTP metric">New-Player Welcome (NEW table) &mdash; standing account flag, not an RTP metric</div>
+        <div class="grid-g">
+          <label class="fld"><span data-i18n="new_player_spin_cap">new_player_spin_cap</span><input type="number" id="npSpins" value="50" min="0" step="5"></label>
+          <label class="fld"><span data-i18n="net_win_cap (&#9670;)">net_win_cap (&#9670;)</span><input type="number" id="npNetWin" value="10000" min="0" step="1000"></label>
+          <label class="fld"><span data-i18n="bet tier">bet tier</span><input type="number" id="npBet" value="100" min="1" step="10"></label>
+          <label class="fld"><span data-i18n="exits after">exits after</span><input type="text" id="npExit" value="&mdash;" readonly></label>
+        </div>
+      </div>
+      <div>
+        <div class="eyebrow" style="margin-bottom:8px" data-i18n="Win Streak Assurance &mdash; forced win after a run of dead spins">Win Streak Assurance &mdash; forced win after a run of dead spins</div>
+        <div class="grid-g">
+          <label class="fld"><span data-i18n="enabled">enabled</span><span style="display:flex;align-items:center;height:30px"><input type="checkbox" id="wsOn" checked style="width:auto"></span></label>
+          <label class="fld"><span data-i18n="min_interval">min_interval</span><input type="number" id="wsMin" value="10" min="1" step="1"></label>
+          <label class="fld"><span data-i18n="max_interval">max_interval</span><input type="number" id="wsMax" value="18" min="1" step="1"></label>
+          <label class="fld"><span data-i18n="avg forced (&times;bet)">avg forced (&times;bet)</span><input type="text" id="wsAvg" value="&mdash;" readonly></label>
+        </div>
+      </div>
+    </div>
+    <details>
+      <summary data-i18n="win_streak_payout_table (weighted)">win_streak_payout_table (weighted)</summary>
+      <div class="pt" id="wstbl" style="grid-template-columns:1.4fr auto auto auto;max-width:520px"></div>
+    </details>
+  </details>
+
+  <details class="globals sect" open>
+    <summary data-i18n="Config &mdash; export / import all settings">Config &mdash; export / import all settings</summary>
+    <div class="controls" style="margin:0">
+      <button class="sm" id="cfgExport" data-i18n="Export &rarr; box">Export &rarr; box</button>
+      <button class="sm" id="cfgDownload" data-i18n="Download .json">Download .json</button>
+      <button class="sm" id="cfgImport" data-i18n="Import from box">Import from box</button>
+      <button class="sm" id="cfgUpload" data-i18n="Upload .json">Upload .json</button>
+      <input type="file" id="cfgFile" accept="application/json,.json" style="display:none">
+    </div>
+    <textarea id="cfgbox" data-i18n-ph="cfgph" placeholder="Click 'Export -> box' to dump every current setting here as JSON (then copy it). Or paste a saved config and click 'Import from box'."></textarea>
+  </details>
+
+
+  <div class="cols" id="cols"></div>
+
+  <div class="globals" id="journeyPanel">
+    <div class="eyebrow" style="margin-bottom:10px" data-i18n="Dynamic table journey (governor) &mdash; simulate one user transitioning Cold / Normal / Hot">Dynamic table journey (governor) &mdash; simulate one user transitioning Cold / Normal / Hot</div>
+    <div class="controls" style="margin:0 0 8px">
+      <label class="fld"><span data-i18n="Journey length (base spins)">Journey length (base spins)</span><input type="number" id="jLen" value="50000" min="1000" step="1000"></label>
+      <label class="fld"><span data-i18n="Rolling window (spins &asymp; 24h)">Rolling window (spins &asymp; 24h)</span><input type="number" id="jWin" value="2000" min="20" step="10"></label>
+      <label class="fld"><span data-i18n="Bet tier">Bet tier</span><input type="number" id="jBet" value="100" min="1"></label>
+      <label class="fld"><span data-i18n="Global RTP (fleet, %)">Global RTP (fleet, %)</span><input type="number" id="jGlobal" value="96" step="0.1"></label>
+      <label class="fld"><span data-i18n="Governor warm-up (spins)">Governor warm-up (spins)</span><input type="number" id="jWarm" value="0" min="0" step="50"></label>
+    </div>
+    <div class="controls" style="margin:0 0 8px">
+      <label class="fld"><span>target_rtp</span><input type="number" id="gTarget" value="95" step="0.1"></label>
+      <label class="fld"><span>max_personal_rtp</span><input type="number" id="gMaxP" value="104" step="0.1"></label>
+      <label class="fld"><span>min_personal_rtp</span><input type="number" id="gMinP" value="86" step="0.1"></label>
+      <label class="fld"><span>max_global_rtp</span><input type="number" id="gMaxG" value="102" step="0.1"></label>
+      <label class="fld"><span>min_global_rtp</span><input type="number" id="gMinG" value="88" step="0.1"></label>
+      <label class="fld"><span>rtp_floor</span><input type="number" id="gFloor" value="78" step="0.1"></label>
+    </div>
+    <div class="controls" style="margin:0 0 4px">
+      <button class="primary" id="jRun" data-i18n="Simulate journey">Simulate journey</button>
+      <span class="eyebrow" id="jStatus"></span>
+    </div>
+    <div id="jResults" style="display:none;margin-top:14px"></div>
+  </div>
+
+  <div class="globals" id="whalePanel">
+    <div class="eyebrow" style="margin-bottom:10px" data-i18n="Large-R stress test &mdash; how high-bet users swing short-term regional RTP (uses the Normal table)">Large-R stress test &mdash; how high-bet users swing short-term regional RTP (uses the Normal table)</div>
+    <div class="controls" style="margin:0 0 8px">
+      <label class="fld"><span data-i18n="Regular players">Regular players</span><input type="number" id="wReg" value="300" min="10" step="10"></label>
+      <label class="fld"><span data-i18n="Spins per player (window)">Spins per player (window)</span><input type="number" id="wSpins" value="120" min="20" step="10"></label>
+      <label class="fld"><span data-i18n="Regular bet">Regular bet</span><input type="number" id="wRegBet" value="100" min="1"></label>
+    </div>
+    <div class="controls" style="margin:0 0 8px">
+      <label class="fld"><span data-i18n="Whale users">Whale users</span><input type="number" id="wWhales" value="3" min="0" step="1"></label>
+      <label class="fld"><span data-i18n="Whale bet (&times; regular)">Whale bet (&times; regular)</span><input type="number" id="wWhaleMult" value="100" min="1"></label>
+      <label class="fld"><span data-i18n="Sample windows (days)">Sample windows (days)</span><input type="number" id="wDays" value="100" min="20" step="10"></label>
+    </div>
+    <div class="controls" style="margin:0 0 4px">
+      <button class="primary" id="wRun" data-i18n="Run stress test">Run stress test</button>
+      <span class="eyebrow" id="wStatus"></span>
+    </div>
+    <div id="wResults" style="display:none;margin-top:14px"></div>
+  </div>
+
+  <p class="note lEN">
+    <b>RTP</b> = mean(total win)/bet over the simulated spins. The headline gauge, hit frequency, FS rate, win breakdown, run extremes and per-symbol bars are all computed at the <b>10&ndash;1,000 diamond</b> bet tier, where SN-1 effectively never binds. The gold tick marks the 95% <code>target_rtp</code>.<br>
+    <b>Effective RTP by bet</b>: SN-1 caps each <i>individual spin's</i> payout (each free spin is its own spin) at <code>safety_net_max_win</code> diamonds, so the cap in &times;bet terms is the diamond value divided by the bet. An over-cap spin is <i>rerolled</i> with a fresh seed up to 3 times and the accepted roll replaces the original entirely (including its scatters and orbs); only if all rerolls also exceed the cap is the cap value credited (&ldquo;pinned&rdquo;). Each tier is simulated independently with full reroll semantics.<br>
+    <b>Run extremes</b> (10&ndash;1,000 tier): <code>Top FS multiplier</code> = highest persistent FS total multiplier reached, shown as &times;(1+value); <code>Top base multiplier</code> = highest summed orb multiplier on a single non-FS spin; <code>Max cascades</code> = most tumble steps in one spin; <code>Top round win</code> = largest payout from one base spin plus its entire Free Spins round, in &times;bet. Bigger spin counts surface rarer extremes.<br>
+    <b>Average per occurrence</b> (10&ndash;1,000 tier) gives the mean of those same metrics, each over the events where they apply: <code>Avg FS multiplier</code> = mean peak persistent multiplier per Free Spins round; <code>Avg base multiplier</code> = mean summed orb multiplier over base spins that had an orb-multiplied win; <code>Avg cascades</code> = mean tumble steps over winning base spins; <code>Avg round win</code> = mean payout over winning spins (RTP &divide; hit frequency, in &times;bet).<br>
+    <b>Dead bonus</b> = share of Free Spins rounds where no spin paid anything (green &le;12%, amber &le;25%, red above &mdash; competitor benchmark is single digits). <b>In-FS hit freq</b> = share of individual free spins that paid (symbol cluster only; scatters do not pay in FS, they only clear and can retrigger).<br>
+    <b>Large-R stress test</b>: pools <i>regular players</i> (at regular bet) with a few <i>whales</i> (at whale bet = &times; regular) over many independent windows, all on the Normal table, and reports the day-to-day spread of wager-weighted RTP. <b>Blended</b> = everyone pooled (what a region's reported RTP looks like); <b>Room-segmented</b> = regular room only (whales in their own bet-range room). <b>Volatility &times;</b> is how much wider the blended RTP swings than the segmented one &mdash; the case for bet-range rooms. Whale wager share shows how a handful of high-bet users can dominate the pooled number, so their personal luck moves the whole region's short-term RTP.<br>
+    <b>&sigma; / round</b> = standard deviation of a single round's payout (base spin + its whole FS round) in &times;bet &mdash; the game's intrinsic volatility. <b>RTP 95% band @N</b> = &plusmn;1.96&middot;&sigma;/&radic;N, the expected spread of the RTP read at the current spin count N (halves for every 4&times; more spins). A wide band means you need more spins for a trustworthy RTP number, and that players feel bigger swings.<br>
+    <b>Auto-save</b>: every config change is saved to your browser's local storage and restored automatically on reopen &mdash; but <i>only when this HTML is opened as a downloaded local file</i>; it does not persist inside the in-app preview sandbox. Use <b>Download .json</b> for portable backups. <b>Reset to defaults</b> clears the saved session and returns to the built-in config.<br>
+    <b>FS split (this build)</b>: each table has separate orb parameters for base game vs Free Spins &mdash; <code>orb chance</code>/<code>Orb value pool</code> drive base spins; <code>FS orb chance</code>/<code>FS orb value pool</code> drive the bonus, where orbs feed the persistent multiplier. This demo ships a balanced economy (Free Spins award 10, retrigger +5, orb values capped at 10&times;) where the bonus carries roughly 40&ndash;45% of the return; shifting the orb pools moves that split either way.<br>
+    <b>New-Player Welcome (NEW table)</b>: a fourth weight profile served to fresh accounts, calibrated above <b>100% RTP</b>. It sits <i>below</i> the hard safety layers (SN-1/2/3) and <i>above</i> the Global RTP Governor, so a safety net still vetoes it but the governor never overrides it. Entry/exit is a <b>standing per-account flag, not an RTP metric</b> &mdash; personal RTP is undefined on a fresh account, so the phase is gated on <code>new_player_spin_cap</code> OR <code>new_player_net_win_cap</code> (a Diamond value pegged to the account's active bet tier), whichever comes first. Eligibility is recalculated from lifetime account statistics and the current caps on each spin; changing a cap can change eligibility. Reinstalling does not reset these statistics. The NEW profile is excluded from the journey/governor panels by design.<br>
+    <b>Win Streak Assurance</b>: a per-player <code>win_streak_count</code> increments on any base-game spin (Free Spins excluded) that resolves with <i>zero</i> total payout, and resets on any spin that pays &mdash; forced or natural. The target is <b>redrawn each cycle</b> from [<code>win_streak_min_interval</code>, <code>win_streak_max_interval</code>] rather than fixed, closing the bet-timing exploit a static threshold would leave open. On reaching the drawn target &mdash; and only after the grid's <i>full natural evaluation</i> already resolved to zero &mdash; the game tops one symbol <i>up to</i> a minimum number of cells (it does not add cells on top of the natural draw, so the forced cluster lands on exactly the tier named) drawn from <code>win_streak_payout_table</code> (a weighted list of real Blue/Green/Yellow/Purple Gem clusters at the 8- and 10-match tiers). Every other cell resolves normally. <b>Priority:</b> SN-3 (force_no_win) hard-vetoes it while the counter still accumulates silently; SN-2 (force_global_cold) suppresses it like everything downstream; the Global and Personal RTP governors run unaffected; Win Streak is evaluated <i>last</i>. <b>Interactions:</b> tumbling runs completely normally after the forced cells resolve &mdash; the forced cluster pays, then refill/re-evaluate proceed from the active table, and organic follow-on wins are paid, not suppressed; the per-step multiplier-orb roll resolves <i>unforced</i>, deliberately, so the spin never feels scripted end-to-end; and forced spins still pass the SN-1 per-spin cap check. The feature is invisible to the player and its RTP cost is absorbed into the base weights &mdash; each card shows the measured <b>Win Streak RTP</b> contribution and forced-win rate (hover) so it can be Monte-Carlo signed off per table.<br>
+    <b>Dynamic table journey (governor)</b>: simulates one player spin-by-spin while the backend switches their table from their <i>personal rolling RTP</i> over the last <code>rolling window</code> spins (a proxy for the 24h window). Hysteresis: start Normal; cross above <code>max_personal_rtp</code> &rarr; Cold; below <code>min_personal_rtp</code> &rarr; Hot; return to Normal when rolling RTP crosses back through <code>target_rtp</code>. <code>rtp_floor</code> forces Hot if rolling RTP dips below it (retention guard). Setting <code>Global RTP</code> outside [<code>min_global_rtp</code>, <code>max_global_rtp</code>] forces every user Cold/Hot, bypassing the personal governor. <code>Governor warm-up</code> holds the player in Normal until N spins are in the window (prevents noise-driven transitions on tiny samples); the governor's rolling RTP is also winsorized at 50&times;bet per round (payouts unaffected) so a single bonus can't pin the state for a whole window. Keep journey length &ge;5&times; the rolling window or the rolling RTP never turns over. The chart plots rolling personal RTP over time with the served table as the background band; effective RTP is the whole-journey win/bet.<br>
+    Model notes: an orb is rolled at spin start and every cascade step and occupies a cell; the orb multiplier applies to the combined symbol&nbsp;+&nbsp;scatter payout (matching the server formula); FS uses a persistent multiplier capped at the FS cap and accumulates only on spins with a qualifying win; FS retrigger can fire once per free spin; rejected rerolls never update the FS persistent multiplier. Scatters never drive a cascade &mdash; only regular-symbol explosions do. New scatters may drop in on each refill and accumulate; once symbol explosions stop the total scatter count is evaluated <i>once</i> (pay + FS trigger), then cleared for the next round. <b>One simplification vs server:</b> the board is modelled as 30 independent cells (counts only, no positions), so the 6+ scatter all-columns positional condition is not enforced (treated as 10&times;) &mdash; this affects only the rare 6+ scatter tier.
+  </p><p class="note lZH" hidden>
+    <b>RTP</b> = 模拟旋转中「总赢分/投注」的均值。顶部大表盘、命中率、FS 频率、赢分拆分、运行极值和各符号柱状图，都在 <b>10&ndash;1,000 钻石</b> 投注档计算——该档下 SN-1 基本不触发。金色刻度标记 95% 的 <code>target_rtp</code>。<br>
+    <b>按投注的有效 RTP</b>：SN-1 会把<i>每一次单独旋转</i>的派彩（每次免费旋转都算独立一次）限制在 <code>safety_net_max_win</code> 钻石以内，因此以 &times;投注 计的上限 = 钻石值 ÷ 投注。超上限的旋转会用新种子<i>重掷</i>最多 3 次，被接受的那次完全替换原结果（含其 Scatter 与 Orb）；只有当所有重掷都仍超上限时才按上限值入账（&ldquo;封顶&rdquo;）。每个档位都以完整的重掷逻辑独立模拟。<br>
+    <b>运行极值</b>（10&ndash;1,000 档）：<code>最高 FS 倍数</code> = 达到的最高 FS 持续累计倍数，以 &times;(1+值) 显示；<code>最高基础倍数</code> = 单次非 FS 旋转上的最高 Orb 倍数之和；<code>最大连消数</code> = 单次旋转内最多的连消步数；<code>单轮最高赢分</code> = 一次基础旋转加其整轮免费旋转的最大派彩（以 &times;投注 计）。旋转次数越多，越能显现罕见极值。<br>
+    <b>每次发生的平均值</b>（10&ndash;1,000 档）给出上述同类指标的均值，各自在其适用事件上求平均：<code>平均 FS 倍数</code> = 每轮免费旋转的持续倍数峰值均值；<code>平均基础倍数</code> = 有 Orb 加成赢分的基础旋转的 Orb 倍数之和均值；<code>平均连消数</code> = 中奖基础旋转的连消步数均值；<code>平均单轮赢分</code> = 中奖旋转的派彩均值（RTP &divide; 命中率，以 &times;投注 计）。<br>
+    <b>空奖励</b> = 没有任何一次旋转派彩的免费旋转轮次占比（绿 &le;12%，黄 &le;25%，超过为红 &mdash; 竞品基准为个位数）。<b>FS 内命中率</b> = 有派彩的单次免费旋转占比（仅符号连线；Scatter 在 FS 内不派彩，只清除并可重触发）。<br>
+    <b>大 R 压力测试</b>：把<i>常规玩家</i>（常规投注）与少数<i>大 R</i>（大 R 投注 = &times; 常规）在多个独立窗口内汇集到常规台，报告按投注加权 RTP 的逐日波动。<b>混合</b> = 全体汇总（区域上报 RTP 的样子）；<b>分房隔离</b> = 仅常规房（大 R 在各自的投注档房间）。<b>波动 &times;</b> 表示混合 RTP 比隔离后的摆动宽多少 &mdash; 这就是按投注档分房的理由。大 R 投注占比显示少数高投注玩家如何主导汇总数字，使其个人运气左右整个区域的短期 RTP。<br>
+    <b>&sigma; / 轮</b> = 单轮派彩（一次基础旋转 + 其整轮 FS）的标准差，以 &times;投注 计 &mdash; 游戏固有的波动性。<b>RTP 95% 区间 @N</b> = &plusmn;1.96&middot;&sigma;/&radic;N，即当前旋转次数 N 下 RTP 读数的预期摆幅（旋转数每增至 4 倍，区间减半）。区间越宽，越需要更多旋转才能得到可信的 RTP，且玩家体验到的摆动越大。<br>
+    <b>自动保存</b>：每次配置改动都会保存到浏览器本地存储，并在重新打开时自动恢复 &mdash; 但<i>仅当以下载到本地的 HTML 文件方式打开时</i>；在应用内预览沙盒中不会持久化。便携备份请用 <b>下载 .json</b>。<b>恢复默认</b> 会清除已保存的会话并回到内置配置。<br>
+    <b>FS 拆分（本版本）</b>：每个台桌对基础游戏与免费旋转分别有独立的 Orb 参数 &mdash; <code>Orb 概率</code>/<code>Orb 倍数池</code> 驱动基础旋转；<code>FS Orb 概率</code>/<code>FS Orb 倍数池</code> 驱动奖励，其中 Orb 喂给持续倍数。本演示为均衡型经济（免费旋转 10 次，重触发 +5，Orb 倍数上限 10&times;），奖励约承载 40&ndash;45% 的回报；调整 Orb 池即可改变这一比例。<br>
+    <b>新手欢迎期（NEW 台）</b>：面向新账号的第四套权重档位，校准至 <b>100% RTP 以上</b>。它位于硬安全层（SN-1/2/3）<i>之下</i>、全局 RTP 调控器<i>之上</i>：安全网仍可否决它，而调控器不会覆盖它。进入/退出由<b>常驻的账号标记决定，而非 RTP 指标</b> &mdash; 新账号的个人 RTP 无定义，因此该阶段以 <code>new_player_spin_cap</code> 或 <code>new_player_net_win_cap</code>（按账号当前投注档折算的钻石值）中<b>先达成者</b>为准。每次旋转根据账号累计数据和当前上限重新判断资格；修改上限可能改变资格，重装不会重置累计数据。NEW 档位按设计不参与旅程/调控器面板。<br>
+    <b>连败保底</b>：每位玩家维护 <code>win_streak_count</code>，在任何<i>零派彩</i>的基础游戏旋转（不含免费旋转）后 +1，并在任何有派彩的旋转（无论强制或自然）后清零。目标值<b>每轮重新抽取</b>于 [<code>win_streak_min_interval</code>, <code>win_streak_max_interval</code>]，而非固定值，从而堵住固定阈值会留下的“卡点压注”漏洞。当计数达到抽取的目标 &mdash; 且必须是棋盘<i>完整自然结算</i>后仍为零的那一次 &mdash; 游戏会把从 <code>win_streak_payout_table</code> 抽中的某一个符号<i>补足到</i>最少格数（不是在自然结果之上再加，因此强制组合恰好落在该表所指的档位）（该表是蓝/绿/黄/紫宝石在 8 连与 10 连档位的组合加权列表）。其余每个格子均正常结算。<b>优先级：</b>SN-3（force_no_win）硬否决，同时计数器静默累加；SN-2（force_global_cold）与其下游一样将其抑制；全局与个人 RTP 调控器不受影响；连败保底<i>最后</i>评估。<b>交互：</b>连消在强制格结算后完全正常运行 &mdash; 先派发被强制的组合，再按当前台桌补充并重新评估，自然衍生的后续中奖照常派发、不被抑制；每步的 Orb 掉落判定<i>不强制</i>，这是刻意设计，避免整次旋转显得被编排；强制旋转同样要通过 SN-1 单次上限校验。该功能对玩家不可见，其 RTP 成本被吸收进基础权重 &mdash; 每张卡片会显示实测的 <b>连败保底 RTP</b> 贡献与强制中奖频率（悬停查看），便于逐台做蒙特卡洛签核。<br>
+    <b>动态台桌旅程（调控器）</b>：逐次旋转地模拟单个玩家，后端根据其在最近 <code>滚动窗口</code> 次旋转内的<i>个人滚动 RTP</i>（24 小时窗口的替身）切换台桌。滞回逻辑：从常规台开始；超过 <code>max_personal_rtp</code> &rarr; 冷台；低于 <code>min_personal_rtp</code> &rarr; 热台；当滚动 RTP 反向穿过 <code>target_rtp</code> 时回到常规台。若滚动 RTP 跌破 <code>rtp_floor</code> 则强制热台（留存保护）。把 <code>全局 RTP</code> 设到 [<code>min_global_rtp</code>, <code>max_global_rtp</code>] 之外会强制所有玩家切冷/热台，绕过个人调控器。<code>调控器预热</code>在窗口内积满 N 次旋转前把玩家保持在常规台（防止小样本上的噪声驱动切换）；调控器的滚动 RTP 还会按每轮 50&times;投注 做缩尾（不影响派彩），使单次奖励无法把状态钉死一整个窗口。旅程长度须 &ge; 滚动窗口的 5 倍，否则滚动 RTP 永远不会翻转。图表以时间为横轴绘制个人滚动 RTP，背景色带表示当时所在台桌；有效 RTP 为整段旅程的赢分/投注。<br>
+    模型说明：Orb 在旋转开始及每个连消步各掷一次并占据一个格子；Orb 倍数作用于「符号+Scatter」的合并派彩（与服务端公式一致）；FS 使用受 FS 上限限制的持续倍数，且仅在有合格赢分的旋转上累积；FS 重触发每次免费旋转最多触发一次；被拒的重掷不会更新 FS 持续倍数。Scatter 不会驱动连消 &mdash; 只有常规符号爆开才会。每次补充时可能掉入新的 Scatter 并累积；当常规符号不再爆开时，对 Scatter 总数<i>一次性</i>结算（派彩 + 触发 FS），随后清除并进入下一轮。<b>相较服务端的一处简化：</b>棋盘被建模为 30 个独立格子（只计数量、无位置），因此 6+ Scatter 需占满所有列的位置条件未被强制（按 10&times; 处理）&mdash; 这仅影响罕见的 6+ Scatter 档。
+  </p>
+</div>
+
+<script>
+"use strict";
+let LANG='en';
+const I18N={"Olympus RTP Simulator": "Olympus RTP 模拟器", "Monte-Carlo balancing tool with SN-1 safety net — runs entirely in your browser.": "基于蒙特卡洛的平衡调试工具，内置 SN-1 安全网 — 全程在浏览器本地运行。", "Run simulation": "运行模拟", "Set as default": "设为默认", "Reset to defaults": "恢复默认", "50k (fast)": "5万（快速）", "200k (balanced)": "20万（均衡）", "500k (precise)": "50万（精确）", "1M (slow)": "100万（慢速）", "Spins / table / tier": "旋转数 / 台 / 档", "auto-balance to 10,000 (Crown, Scatter, 8×, 10× locked)": "自动配平至 10,000（皇冠、Scatter、8×、10× 锁定）", "Shared parameters (all tables)": "共享参数（所有台桌）", "FS initial award": "FS 初始次数", "FS retrigger scatters": "FS 重触发 Scatter 数", "FS retrigger amount": "FS 重触发次数", "FS multiplier cap": "FS 倍数上限", "Max cascade depth": "最大连消层数", "SN-1 max win (diamonds)": "SN-1 单次最大赢分（钻石）", "Orb values": "Orb 倍数值", "Advanced — symbol paytable (multiplier of bet, by match count)": "高级 — 符号赔付表（按连线数量，投注的倍数）", "Config — export / import all settings": "配置 — 导出 / 导入全部设置", "Export → box": "导出 → 文本框", "Download .json": "下载 .json", "Import from box": "从文本框导入", "Upload .json": "上传 .json", "Dynamic table journey (governor) — simulate one user transitioning Cold / Normal / Hot": "动态台桌旅程（调控器）— 模拟单个玩家在 冷台 / 常规台 / 热台 之间切换", "Journey length (base spins)": "旅程长度（基础旋转数）", "Rolling window (spins ≈ 24h)": "滚动窗口（旋转数 ≈ 24小时）", "Bet tier": "投注档位", "Global RTP (fleet, %)": "全局 RTP（全服，%）", "Governor warm-up (spins)": "调控器预热（旋转数）", "Simulate journey": "模拟旅程", "Large-R stress test — how high-bet users swing short-term regional RTP (uses the Normal table)": "大 R 压力测试 — 高投注玩家如何撬动短期区域 RTP（使用常规台）", "Regular players": "常规玩家数", "Spins per player (window)": "每位玩家旋转数（窗口）", "Regular bet": "常规投注", "Whale users": "大 R 玩家数", "Whale bet (× regular)": "大 R 投注（× 常规）", "Sample windows (days)": "采样窗口（天）", "Run stress test": "运行压力测试", "idle": "空闲", "Click 'Export -> box' to dump every current setting here as JSON (then copy it). Or paste a saved config and click 'Import from box'.": "点击“导出 -> 文本框”会把当前所有设置以 JSON 输出到这里（然后复制走）。或粘贴已保存的配置并点击“从文本框导入”。", "orb chance": "Orb 概率", "FS orb chance": "FS Orb 概率", "hit freq": "命中率", "FS rate": "FS 频率", "FS % of RTP": "FS 占 RTP %", "dead bonus": "空奖励", "in-FS hit freq": "FS 内命中率", "&sigma; / round": "&sigma; / 轮", "RTP 95% band @N": "RTP 95% 区间 @N", "Effective RTP by bet (SN-1 applied)": "按投注的有效 RTP（应用 SN-1）", "base": "基础", "scatter": "Scatter", "freespins": "免费旋转", "Run extremes": "运行极值", "Top FS multiplier": "最高 FS 倍数", "Top base multiplier": "最高基础倍数", "Max cascades": "最大连消数", "Top round win": "单轮最高赢分", "Average per occurrence": "每次发生的平均值", "Avg FS multiplier": "平均 FS 倍数", "Avg base multiplier": "平均基础倍数", "Avg cascades": "平均连消数", "Avg round win": "平均单轮赢分", "Symbol weights": "符号权重", "symbol": "符号", "multiplier": "倍数", "weight": "权重", "pool total": "池总计", "Orb value pool": "Orb 倍数池", "FS orb value pool (bonus only)": "FS Orb 倍数池（仅奖励）", "Per-symbol RTP contribution": "各符号 RTP 贡献", "Blue Gem": "蓝宝石", "Green Gem": "绿宝石", "Yellow Gem": "黄宝石", "Purple Gem": "紫宝石", "Red Gem": "红宝石", "Cup": "圣杯", "Ring": "戒指", "Hourglass": "沙漏", "Crown": "皇冠", "Scatter": "Scatter", "running": "运行中", "cap hit 1 in ": "触顶 1/", "% of FS rerolled": "% 的 FS 被重掷", " pinned": " 次封顶", "cap never hit": "从未触顶", "pt": "点", "Effective RTP": "有效 RTP", "% Cold": "冷台占比", "% Normal": "常规台占比", "% Hot": "热台占比", "Transitions": "切换次数", "Rolling range": "滚动区间", "Cold": "冷台", "Normal": "常规台", "Hot": "热台", "base spins": "基础旋转数", "max ": "上限 ", "tgt ": "目标 ", "min ": "下限 ", "floor ": "底线 ", "Blended (all users pooled)": "混合（全体汇总）", "Room-segmented (regular room only)": "分房隔离（仅常规房）", "Whale wager share": "大 R 投注占比", "Blended RTP σ": "混合 RTP σ", "Segmented RTP σ": "隔离 RTP σ", "Volatility ×": "波动 ×", "Blended worst day": "混合最差日", "Blended best day": "混合最佳日", "restored last session — Reset to defaults to clear": "已恢复上次会话 — 点“恢复默认”可清除", "saved — will persist on reopen (local file only)": "已保存 — 重新打开时保留（仅限本地文件）", "reset to built-in defaults (saved session cleared)": "已恢复内置默认（已清除保存的会话）", "simulating…": "模拟中…", "simulating population…": "模拟人群…", "done": "完成", "error: ": "错误：", "Paste a config into the box first.": "请先把配置粘贴到文本框。", "Invalid JSON: ": "无效的 JSON：", "Invalid JSON file: ": "无效的 JSON 文件：", "Download blocked here — copy the JSON from the box instead.": "此处不支持下载 — 请改为从文本框复制 JSON。", "Import failed: ": "导入失败：", "config imported": "配置已导入", "scatters": "Scatter 数", "payout &times;bet": "派彩 ×投注", "Win Streak Assurance &mdash; forced win after a run of dead spins": "连败保底 (7.5) &mdash; 连续空转后强制中奖", "Enable Win Streak": "启用连败保底", "win_streak_min_interval": "win_streak_min_interval", "win_streak_max_interval": "win_streak_max_interval", "Avg forced payout (&times;bet)": "强制派彩均值（&times;投注）", "win_streak_payout_table (weighted)": "win_streak_payout_table（加权）", "min cells": "最少格数", "Win Streak": "连败保底", "forced win rate": "强制中奖率", "Win Streak RTP": "连败保底 RTP", "New-player drop chance (multiplier_drop_chance / fs_multiplier_drop_chance)": "新手 Orb 概率", "New-Player Welcome (NEW table) &mdash; standing account flag, not an RTP metric": "新手欢迎期（NEW 台）&mdash; 常驻账号标记，非 RTP 指标", "new_player_spin_cap": "new_player_spin_cap", "net_win_cap (&#9670;)": "net_win_cap（钻石）", "bet tier": "投注档", "exits after": "退出于", "enabled": "启用", "min_interval": "min_interval", "max_interval": "max_interval", "avg forced (&times;bet)": "强制均值（&times;投注）"};
+Object.assign(I18N,{
+  "FS Symbol weights (bonus only)":"免费旋转符号权重（仅奖励）",
+  "0 = inactive":"0 = 停用",
+  "mirrors the base symbol weights":"与基础符号权重保持一致",
+  "= base symbol weights":"= 基础符号权重",
+  "Shared parameters (all tables)":"共享参数（所有台桌）",
+  "New-Player Welcome &amp; Win Streak Assurance":"新手欢迎期 &amp; 连败保底",
+  "Config &mdash; export / import all settings":"配置 &mdash; 导出 / 导入全部设置",
+  "New-Player Welcome & Win Streak Assurance":"新手欢迎期 & 连败保底"
+});
+function tr(s){return LANG==='zh'&&(s in I18N)?I18N[s]:s;}
+function tname(k){return LANG==='zh'?({NEW:'新手台',COLD:'冷台',NORMAL:'常规台',HOT:'热台'}[k]||k):k;}
+let LASTRUN={},LASTJ=null,LASTW=null;
+function applyStatic(){
+  document.querySelectorAll('[data-i18n]').forEach(el=>{if(el.id==='status')return;el.innerHTML=tr(el.getAttribute('data-i18n'));});
+  document.querySelectorAll('[data-i18n-ph]').forEach(ph=>{if(!ph.dataset.phEn)ph.dataset.phEn=ph.placeholder;ph.placeholder=(LANG==='zh'&&(ph.dataset.phEn in I18N))?I18N[ph.dataset.phEn]:ph.dataset.phEn;});
+}
+function setLang(l){
+  LANG=l;
+  const b=document.getElementById('langBtn');if(b)b.textContent=(l==='en'?'中文':'EN');
+  document.querySelectorAll('.lEN').forEach(e=>e.hidden=(l!=='en'));
+  document.querySelectorAll('.lZH').forEach(e=>e.hidden=(l!=='zh'));
+  applyStatic();
+  var _st=document.getElementById('status');if(_st&&(_st.textContent==='idle'||_st.textContent==='空闲'))_st.textContent=tr('idle');
+  try{syncPaytable();}catch(e){}
+  const cfg=gatherConfig();for(const k of ['NEW','COLD','NORMAL','HOT'])if(cfg.tables[k])STATE[k]=cfg.tables[k];
+  WSROWS=readWinStreak().tbl.length?[...document.querySelectorAll('.wsrow')].map(r=>({sym:+r.querySelector('.wssym').value,cnt:+r.querySelector('.wscnt').value,w:+r.querySelector('.wsw').value})):WSROWS;
+  buildCols();buildPaytable();buildWsTable();refreshPercents();
+  for(const k in LASTRUN){const c=document.querySelector('.tbl[data-k="'+k+'"]');if(c)render(c,LASTRUN[k]);}
+  if(LASTJ)renderJourney(LASTJ);if(LASTW)renderWhales(LASTW);
+}
+
+const SYMS=["Blue Gem","Green Gem","Yellow Gem","Purple Gem","Red Gem","Cup","Ring","Hourglass","Crown","Scatter"];
+const TIERS=[{label:"10\u20131,000",bet:1000},{label:"5,000",bet:5000},{label:"10,000",bet:10000}];
+// Illustrative demo configuration. These are NOT production values.
+// Symbol weight order: Blue,Green,Yellow,Purple,Red,Cup,Ring,Hourglass,Crown,Scatter.
+// Orb weight order: 2,3,4,5,6,8,10. Weights are relative — only proportions matter.
+const DEF={
+  NEW:   {w:[1733,1507,1311,1141,992,863,751,654,745,303], fsW:[1733,1507,1311,1141,992,863,751,654,745,303], orb:[3400,2500,1800,1150,700,320,130], oc:0.186,
+          fsOrb:[2200,2050,1900,1550,1150,750,400], fsOc:0.3},
+  COLD:  {w:[1707,1490,1301,1136,992,866,756,660,800,292], fsW:[1707,1490,1301,1136,992,866,756,660,800,292], orb:[4600,2650,1500,750,320,120,60], oc:0.292,
+          fsOrb:[2800,2400,1950,1400,850,400,200], fsOc:0.22},
+  NORMAL:{w:[1725,1502,1308,1139,993,864,753,656,760,300], fsW:[1725,1502,1308,1139,993,864,753,656,760,300], orb:[3800,2500,1750,1000,600,250,100], oc:0.202,
+          fsOrb:[2400,2150,1900,1500,1100,650,300], fsOc:0.26},
+  HOT:   {w:[1730,1506,1310,1140,992,863,751,653,750,305], fsW:[1730,1506,1310,1140,992,863,751,653,750,305], orb:[3000,2400,1800,1300,850,450,200], oc:0.159,
+          fsOrb:[2400,2150,1850,1500,1100,650,350], fsOc:0.28},
+};
+const DEF_PAY=[[0.25,0.5,1.5],[0.35,0.7,2],[0.5,1,3],[0.7,1.4,4],[1,2,5],[1.5,3,7],[2,4,9],[3,6,12],[4,8,20]];
+const DEF_SCAT=[2,5,12];
+let STATE=JSON.parse(JSON.stringify(DEF));
+let curDefault=null;
+let PAYT=DEF_PAY.map(r=>r.slice());
+let SCATP=DEF_SCAT.slice();
+
+// ---------- simulation core ----------
+function makeRng(seed){let s=seed>>>0||1;return()=>{s^=s<<13;s^=s>>>17;s^=s<<5;s>>>=0;return s/4294967296;};}
+function symPay(i,c){if(c<8)return 0;const t=PAYT[i];return c<=9?t[0]:(c<=11?t[1]:t[2]);}
+function scatPay(c){return c>=6?SCATP[2]:(c===5?SCATP[1]:(c===4?SCATP[0]:0));}
+function cum(w){
+  const values=w.map(Number);
+  if(values.some(x=>!Number.isFinite(x)||x<0))throw new Error('Weights must be non-negative numbers');
+  const a=[];let s=0;for(const x of values){s+=x;a.push(s);}
+  if(s<=0)throw new Error('Each weight pool must contain at least one positive value');
+  return{a,tot:s};
+}
+function pick(c,r){const x=r()*c.tot,a=c.a;for(let i=0;i<a.length;i++)if(x<a[i])return i;return a.length-1;}
+function draw(c,n,r){const ct=[0,0,0,0,0,0,0,0,0,0];for(let k=0;k<n;k++)ct[pick(c,r)]++;return ct;}
+
+// Regular symbols drive cascades; retained Scatters settle once at the end.
+// Orb eligibility follows a qualifying symbol or phase-specific Scatter win.
+function oneSpin(symC,orbC,ov,oc,P,base,r,fSym,fCount){
+  P.scratch.fill(0);
+  // Step 0 fills 30 cells; a per-step orb roll may convert one cell to an orb.
+  let osum=0,nOrb=0;
+  if(r()<oc){osum+=ov[pick(orbC,r)];nOrb=1;}
+  // Win Streak Assurance: force a MINIMUM number of cells for ONE symbol. The
+  // board is drawn completely normally first, then the chosen symbol is topped
+  // UP to the minimum (never added on top of it), so the forced cluster lands on
+  // exactly the tier win_streak_payout_table names. The displaced cells are taken
+  // from the cheapest symbols first; Scatter is protected so the FS trigger rate
+  // is unaffected. Every other cell, and the orb roll above, resolve normally.
+  let counts,_fc=(fSym!=null&&fCount>0)?Math.min(fCount,30-nOrb):0;
+  counts=draw(symC,30-nOrb,r);
+  if(_fc>0&&counts[fSym]<_fc){
+    let rem=_fc-counts[fSym];
+    for(let z=0;z<9&&rem>0;z++){                 // 0..8 = paying symbols, cheapest first
+      if(z===fSym)continue;
+      const take=Math.min(counts[z],rem);counts[z]-=take;rem-=take;
+    }
+    if(rem>0&&fSym!==9){                          // last resort only
+      const take=Math.min(counts[9],rem);counts[9]-=take;rem-=take;
+    }
+    counts[fSym]=_fc-rem;
+  }
+  let sw=0,scatWinTotal=0,trig=false,maxScat=0,d=0,qual=false;
+  for(let step=0;;step++){
+    // Pay-Anywhere regular evaluation (>=8 identical anywhere); winners cleared.
+    let any=false,cleared=0;
+    for(let i=0;i<9;i++){if(counts[i]>=8){const p=symPay(i,counts[i]);sw+=p;P.scratch[i]+=p;cleared+=counts[i];counts[i]=0;any=true;}}
+    // Retained Scatters settle once after regular-symbol cascades.
+    // Scatters never drive a cascade - only regular-symbol explosions do. New
+    // scatters may drop in on each refill and ACCUMULATE on the board.
+    d=step;
+    if(any)qual=true;
+    if(!any)break;
+    if(step>=P.maxDepth)break;          // cap: pay current board, abort tumbling
+    // Orb roll for the next board (consumes one cleared cell if it lands).
+    let ot=0;if(r()<oc){osum+=ov[pick(orbC,r)];ot=1;}
+    let refill=cleared-ot;if(refill<0)refill=0;
+    if(refill>0){const add=draw(symC,refill,r);for(let i=0;i<10;i++)counts[i]+=add[i];}
+  }
+  // Cascade finished: count the accumulated scatters ONCE, pay, then clear them.
+  const scEnd=counts[9];maxScat=scEnd;
+  if(scEnd>=4){trig=true;if(base)scatWinTotal+=scatPay(scEnd);qual=true;}
+  counts[9]=0;
+  // Orb eligibility : orb present AND a qualifying win this sequence.
+  const applied=(osum>0&&qual);
+  const m=applied?(1+osum):1;
+  // win = (sumSymbols + scatter) * bet * (1+orbSum); scatter pays only in base game.
+  return{sym:sw*m,scat:scatWinTotal*m,trig,depth:d,baseMult:applied?osum:0};
+}
+function oneFsRoll(symC,orbC,ov,oc,P,r){
+  let osum=0,nOrb=0;if(r()<oc){osum+=ov[pick(orbC,r)];nOrb=1;}
+  let counts=draw(symC,30-nOrb,r);
+  let sw=0,maxScat=0,d=0,qual=false;
+  for(let step=0;;step++){
+    let any=false,cleared=0;
+    for(let i=0;i<9;i++){if(counts[i]>=8){sw+=symPay(i,counts[i]);cleared+=counts[i];counts[i]=0;any=true;}}
+    d=step;
+    if(any)qual=true;
+    if(!any)break;
+    if(step>=P.maxDepth)break;
+    let ot=0;if(r()<oc){osum+=ov[pick(orbC,r)];ot=1;}
+    let refill=cleared-ot;if(refill<0)refill=0;
+    if(refill>0){const add=draw(symC,refill,r);for(let i=0;i<10;i++)counts[i]+=add[i];}
+  }
+  maxScat=counts[9];if(maxScat>=P.fsRetThr)qual=true;counts[9]=0;   // counted once at the end of the cascade, then cleared
+  return{sw,osum,scMax:maxScat,depth:d,qual};
+}
+function fsRoundSN1(symC,orbC,ov,oc,P,capX,r,acc){
+  let spins=P.fsAward,per=0,tot=0,maxPer=0,maxD=0,wSp=0,rSp=0;
+  while(spins>0){
+    let roll=null,pay=0,ok=false,over=false,qual=false;
+    for(let a=0;a<4;a++){
+      roll=oneFsRoll(symC,orbC,ov,oc,P,r);
+      // FS orb eligibility : orb present AND a qualifying win this spin —
+      // a symbol win (>=8) OR a scatter win at the configured FS retrigger threshold.
+      qual=roll.qual;
+      const pc=(roll.osum>0&&qual)?Math.min(per+roll.osum,P.fsCap):per;
+      pay=roll.sw>0?roll.sw*(1+pc):0;
+      if(pay<=capX){ok=true;break;}
+      over=true;
+    }
+    acc.fsSpins++;
+    if(over)acc.fsOver++;
+    if(!ok){pay=capX;acc.fsPin++;}
+    // Commit the persistent multiplier only from the accepted roll, and
+    // only when orbs are eligible (orb present AND a qualifying win this spin).
+    if(roll.osum>0&&qual)per=Math.min(per+roll.osum,P.fsCap);
+    if(per>maxPer)maxPer=per;
+    if(roll.depth>maxD)maxD=roll.depth;
+    tot+=pay;
+    rSp++; if(pay>0)wSp++;
+    // Retrigger fires at most once PER FREE SPIN (not once per session).
+    if(roll.scMax>=P.fsRetThr){spins+=P.fsRetAmt;}
+    spins--;
+  }
+  acc.fsRounds++; if(wSp>0)acc.fsWinRounds++;
+  acc.fsWinSpins+=wSp; acc.fsRoundSpins+=rSp;
+  return{total:tot,maxPer,maxD};
+}
+function newAcc(){return{tb:0,tw:0,sq:0,fsSum:0,scatSum:0,baseSum:0,fn:0,hits:0,sym:[0,0,0,0,0,0,0,0,0],
+  maxFS:0,maxBase:0,maxCasc:0,maxWin:0,bOver:0,bPin:0,fsOver:0,fsPin:0,fsSpins:0,
+  sumFSmult:0,sumBaseMult:0,cntBaseMult:0,sumDepth:0,cntDepth:0,
+  fsRounds:0,fsWinRounds:0,fsWinSpins:0,fsRoundSpins:0,
+  wsCount:0,wsTarget:0,wsForced:0,wsWin:0};}
+// Win Streak Assurance helpers. Target is REDRAWN each cycle from
+// [win_streak_min_interval, win_streak_max_interval] so a static threshold
+// can't be bet-timed by the player.
+function wsDraw(WS,r){const lo=WS.min|0,hi=Math.max(WS.min|0,WS.max|0);return lo+Math.floor(r()*(hi-lo+1));}
+function wsPick(WS,r){const t=WS.tbl;let s=0;for(let i=0;i<t.length;i++)s+=t[i].w;
+  if(s<=0)return t[0];let u=r()*s;for(let i=0;i<t.length;i++){u-=t[i].w;if(u<0)return t[i];}return t[t.length-1];}
+function runChunk(symW,orbW,oc,P,acc,count,r,capX,fsSymW,fsOrbW,fsOc){
+  const symC=cum(symW),orbC=cum(orbW),ov=P.orbVals;
+  const fsSymC=fsSymW?cum(fsSymW):symC;
+  const fsOrbC=fsOrbW?cum(fsOrbW):orbC, fsOcV=(fsOc!=null?fsOc:oc);
+  for(let k=0;k<count;k++){
+    acc.tb++;
+    let res=null,pay=0,ok=false,over=false;
+    for(let a=0;a<4;a++){
+      res=oneSpin(symC,orbC,ov,oc,P,true,r);
+      pay=res.sym+res.scat;
+      if(pay<=capX){ok=true;break;}
+      over=true;
+    }
+    if(over)acc.bOver++;
+    if(!ok){pay=capX;acc.bPin++;}
+    // ---- Win Streak Assurance (evaluated LAST, after the grid's natural result is final) ----
+    const WS=P.ws;
+    if(WS&&WS.on&&WS.tbl.length){
+      if(pay<=0){
+        acc.wsCount++;
+        if(acc.wsTarget<=0)acc.wsTarget=wsDraw(WS,r);
+        if(acc.wsCount>=acc.wsTarget){
+          const e=wsPick(WS,r);
+          let fres=null,fpay=0,fok=false;
+          for(let a=0;a<4;a++){                       // forced spins still pass SN-1
+            fres=oneSpin(symC,orbC,ov,oc,P,true,r,e.sym,e.cnt);
+            fpay=fres.sym+fres.scat;
+            if(fpay<=capX){fok=true;break;}
+          }
+          if(!fok)fpay=capX;
+          res=fres;pay=fpay;
+          acc.wsForced++;acc.wsWin+=fpay;
+          acc.wsCount=0;acc.wsTarget=wsDraw(WS,r);
+        }
+      }else{acc.wsCount=0;acc.wsTarget=wsDraw(WS,r);}
+    }
+    for(let i=0;i<9;i++)acc.sym[i]+=P.scratch[i];
+    acc.baseSum+=ok?res.sym:pay;
+    acc.scatSum+=ok?res.scat:0;
+    if(pay>0)acc.hits++;
+    if(res.depth>acc.maxCasc)acc.maxCasc=res.depth;
+    if(res.baseMult>acc.maxBase)acc.maxBase=res.baseMult;
+    if(res.baseMult>0){acc.sumBaseMult+=res.baseMult;acc.cntBaseMult++;}
+    if(res.depth>0){acc.sumDepth+=res.depth;acc.cntDepth++;}
+    let w=pay;
+    if(res.trig){
+      acc.fn++;
+      const f=fsRoundSN1(fsSymC,fsOrbC,ov,fsOcV,P,capX,r,acc);
+      w+=f.total;acc.fsSum+=f.total;
+      if(f.maxPer>acc.maxFS)acc.maxFS=f.maxPer;
+      acc.sumFSmult+=f.maxPer;
+      if(f.maxD>acc.maxCasc)acc.maxCasc=f.maxD;
+    }
+    if(w>acc.maxWin)acc.maxWin=w;
+    acc.tw+=w; acc.sq+=w*w;
+  }
+}
+function finalize(acc){
+  const tb=acc.tb;
+  const mean=acc.tw/tb, sigma=Math.sqrt(Math.max(0,acc.sq/tb-mean*mean));
+  return{sigma,rtp:acc.tw/tb,hit:acc.hits/tb,fsr:acc.fn/tb,base:acc.baseSum/tb,scat:acc.scatSum/tb,
+    fs:acc.fsSum/tb,sym:acc.sym.map(x=>x/tb),
+    maxFS:acc.maxFS,maxBase:acc.maxBase,maxCasc:acc.maxCasc,maxWin:acc.maxWin,
+    avgFS:acc.fn?acc.sumFSmult/acc.fn:0,
+    avgBase:acc.cntBaseMult?acc.sumBaseMult/acc.cntBaseMult:0,
+    avgCasc:acc.cntDepth?acc.sumDepth/acc.cntDepth:0,
+    avgWin:acc.hits?acc.tw/acc.hits:0,
+    deadBonus:acc.fsRounds?1-acc.fsWinRounds/acc.fsRounds:0,
+    fsHit:acc.fsRoundSpins?acc.fsWinSpins/acc.fsRoundSpins:0,
+    fsRounds:acc.fsRounds,
+    wsForced:acc.wsForced,wsRate:acc.wsForced/tb,wsRtp:acc.wsWin/tb,
+    tb,bOver:acc.bOver,bPin:acc.bPin,fsOver:acc.fsOver,fsPin:acc.fsPin,fsSpins:acc.fsSpins};
+}
+function autoBalance(tableEl, edited, selector){
+  const inputs=[...tableEl.querySelectorAll(selector)];
+  let v=Math.round(+edited.value||0);
+  if(v<0)v=0; if(v>10000)v=10000;
+  edited.value=v;
+  // locked from redistribution: last two inputs in each group
+  //  .w  -> Crown + Scatter ;  .ow/.fsw -> 25x + 50x orb weights
+  const locked=new Set([inputs[inputs.length-2], inputs[inputs.length-1]]);
+  const lockedSum=inputs.filter(x=>locked.has(x)&&x!==edited).reduce((a,x)=>a+(+x.value||0),0);
+  const others=inputs.filter(x=>x!==edited && !locked.has(x));
+  if(others.length===0)return;
+  let target=10000-v-lockedSum; if(target<0)target=0;
+  const sumOthers=others.reduce((a,x)=>a+(+x.value||0),0);
+  let vals;
+  if(sumOthers<=0){
+    const base=Math.floor(target/others.length);
+    vals=others.map(()=>base);
+    let rem=target-base*others.length;
+    for(let i=0;i<rem;i++)vals[i%vals.length]++;
+  }else{
+    vals=others.map(x=>Math.round((+x.value||0)/sumOthers*target));
+    let diff=target-vals.reduce((a,b)=>a+b,0);
+    if(diff!==0){
+      let idx=0; for(let i=1;i<vals.length;i++) if(vals[i]>vals[idx]) idx=i;
+      vals[idx]+=diff; if(vals[idx]<0) vals[idx]=0;
+    }
+  }
+  others.forEach((x,i)=>x.value=Math.max(0,vals[i]));
+  refreshPercents();
+}
+
+// ---------- UI build ----------
+const colsEl=document.getElementById('cols');
+function buildCols(){
+  colsEl.innerHTML='';
+  for(const key of ['NEW','COLD','NORMAL','HOT']){
+    const cls=key.toLowerCase();
+    const d=STATE[key];
+    const el=document.createElement('div');el.className='tbl '+cls;el.dataset.k=key;
+    el.innerHTML=`
+      <div class="th"><span class="tname">${tname(key)}</span>
+        <label class="inl">${tr('orb chance')} <input type="number" step="0.005" min="0" max="1" class="oc" value="${d.oc}"></label>
+        <label class="inl">${tr('FS orb chance')} <input type="number" step="0.005" min="0" max="1" class="fsoc" value="${d.fsOc}"></label></div>
+      <div class="readout"><div class="rtp pending" data-rtp>&mdash;<small>%</small></div>
+        <div class="gauge"><span class="tick"></span><i data-mark style="display:none"></i></div></div>
+      <div class="meta" style="border-bottom:none;padding-bottom:3px">
+        <div><b data-hit>&mdash;</b><span>${tr('hit freq')}</span></div>
+        <div><b data-fs>&mdash;</b><span>${tr('FS rate')}</span></div>
+        <div><b data-fsshare>&mdash;</b><span>${tr('FS % of RTP')}</span></div>
+        <div><b data-dead>&mdash;</b><span>${tr('dead bonus')}</span></div></div>
+      <div class="meta" style="padding-top:3px">
+        <div><b data-fshit>&mdash;</b><span>${tr('in-FS hit freq')}</span></div>
+        <div><b data-sigma>&mdash;</b><span>${tr('&sigma; / round')}</span></div>
+        <div><b data-band>&mdash;</b><span>${tr('RTP 95% band @N')}</span></div>
+        <div><b data-ws>&mdash;</b><span>${tr('Win Streak RTP')}</span></div></div>
+      <div class="seg">${tr('Effective RTP by bet (SN-1 applied)')}</div>
+      <div class="tiers">
+        ${TIERS.map((t,i)=>`<div class="trow"><span class="tl">${t.label}</span><b data-trtp="${i}">&mdash;</b><span class="tn" data-tnote="${i}"></span></div>`).join('')}
+      </div>
+      <div class="breakdown">
+        <div class="brow"><span class="lbl">${tr('base')}</span><div class="track"><i data-b-base style="background:var(--normal)"></i></div><span class="val" data-v-base>&mdash;</span></div>
+        <div class="brow"><span class="lbl">${tr('scatter')}</span><div class="track"><i data-b-scat style="background:var(--cold)"></i></div><span class="val" data-v-scat>&mdash;</span></div>
+        <div class="brow"><span class="lbl">${tr('freespins')}</span><div class="track"><i data-b-fs style="background:var(--hot)"></i></div><span class="val" data-v-fs>&mdash;</span></div>
+      </div>
+      <div class="seg">${tr('Run extremes')}</div>
+      <div class="extremes">
+        <div class="exrow"><span>${tr('Top FS multiplier')}</span><b data-ex-fs>&mdash;</b></div>
+        <div class="exrow"><span>${tr('Top base multiplier')}</span><b data-ex-base>&mdash;</b></div>
+        <div class="exrow"><span>${tr('Max cascades')}</span><b data-ex-casc>&mdash;</b></div>
+        <div class="exrow"><span>${tr('Top round win')}</span><b data-ex-win>&mdash;</b></div>
+      </div>
+      <div class="seg">${tr('Average per occurrence')}</div>
+      <div class="extremes avgblock">
+        <div class="exrow"><span>${tr('Avg FS multiplier')}</span><b data-av-fs>&mdash;</b></div>
+        <div class="exrow"><span>${tr('Avg base multiplier')}</span><b data-av-base>&mdash;</b></div>
+        <div class="exrow"><span>${tr('Avg cascades')}</span><b data-av-casc>&mdash;</b></div>
+        <div class="exrow"><span>${tr('Avg round win')}</span><b data-av-win>&mdash;</b></div>
+      </div>
+      <div class="seg">${tr('Symbol weights')}</div>
+      <div class="wtbl"><div class="wrow head"><span>${tr('symbol')}</span><span style="text-align:right">${tr('weight')}</span><span style="text-align:right">%</span></div>
+        ${SYMS.map((s,i)=>`<div class="wrow"><span class="nm">${tr(s)}</span><input type="number" class="w" data-i="${i}" value="${d.w[i]}"><span class="pc" data-pc="${i}"></span></div>`).join('')}
+        <div class="wrow sum"><span>${tr('pool total')}</span><span style="text-align:right" data-wtot></span><span style="text-align:right">100%</span></div>
+      </div>
+      <div class="seg">${tr('FS Symbol weights (bonus only)')} <span style="float:right;font-weight:400">${tr('= base symbol weights')}</span></div>
+      <div class="wtbl"><div class="wrow head"><span>${tr('symbol')}</span><span style="text-align:right">${tr('weight')}</span><span style="text-align:right">%</span></div>
+        ${SYMS.map((s,i)=>`<div class="wrow"><span class="nm">${tr(s)}</span><input type="number" class="fsymw" data-i="${i}" value="${d.w[i]}" readonly tabindex="-1" title="${tr('mirrors the base symbol weights')}" style="opacity:.65;cursor:not-allowed"><span class="pc" data-fspc="${i}"></span></div>`).join('')}
+        <div class="wrow sum"><span>${tr('pool total')}</span><span style="text-align:right" data-fswtot></span><span style="text-align:right">100%</span></div>
+      </div>
+      <div class="seg">${tr('Orb value pool')} <span style="float:right;font-weight:400">${tr('0 = inactive')}</span></div>
+      <div class="wtbl"><div class="wrow head"><span>${tr('multiplier')}</span><span style="text-align:right">${tr('weight')}</span><span style="text-align:right">%</span></div>
+        ${d.orb.map((v,i)=>`<div class="wrow"><span class="nm" data-ov="${i}"></span><input type="number" min="0" step="1" class="ow" data-i="${i}" value="${v}"><span class="pc" data-opc="${i}"></span></div>`).join('')}
+        <div class="wrow sum"><span>E[orb]</span><span style="text-align:right" data-orbev></span><span></span></div>
+      </div>
+      <div class="seg">${tr('FS orb value pool (bonus only)')} <span style="float:right;font-weight:400">${tr('0 = inactive')}</span></div>
+      <div class="wtbl"><div class="wrow head"><span>${tr('multiplier')}</span><span style="text-align:right">${tr('weight')}</span><span style="text-align:right">%</span></div>
+        ${d.fsOrb.map((v,i)=>`<div class="wrow"><span class="nm" data-fov="${i}"></span><input type="number" min="0" step="1" class="fsw" data-i="${i}" value="${v}"><span class="pc" data-fopc="${i}"></span></div>`).join('')}
+        <div class="wrow sum"><span>E[FS orb]</span><span style="text-align:right" data-fsorbev></span><span></span></div>
+      </div>
+      <div class="seg">${tr('Per-symbol RTP contribution')}</div>
+      <div class="contrib" data-contrib></div>`;
+    colsEl.appendChild(el);
+  }
+  refreshPercents();
+}
+// Win Streak payout table: five real gem clusters at the 8- and 10-match tiers.
+const WS_DEF=[{sym:0,cnt:8,w:2800},{sym:1,cnt:8,w:2400},{sym:2,cnt:8,w:2000},{sym:3,cnt:8,w:1600},{sym:4,cnt:10,w:1200}];
+let WSROWS=JSON.parse(JSON.stringify(WS_DEF));
+function buildWsTable(){
+  const el=document.getElementById('wstbl');
+  el.innerHTML=`<span class="h">${tr('symbol')}</span><span class="h">${tr('min cells')}</span><span class="h">${tr('payout &times;bet')}</span><span class="h">${tr('weight')}</span>`+
+    WSROWS.map((e,i)=>`<span class="wsrow" data-i="${i}" style="display:contents">
+      <select class="wssym">${SYMS.slice(0,9).map((sname,si)=>`<option value="${si}"${si===e.sym?' selected':''}>${tr(sname)}</option>`).join('')}</select>
+      <input type="number" class="wscnt" min="8" max="30" step="1" value="${e.cnt}">
+      <input type="text" class="wspay" readonly value="${symPay(e.sym,e.cnt).toFixed(2)}">
+      <input type="number" class="wsw" min="0" step="100" value="${e.w}">
+    </span>`).join('');
+  refreshWs();
+}
+function refreshNp(){
+  const el=document.getElementById('npExit');if(!el)return;
+  const cap=+document.getElementById('npNetWin').value||0, bet=Math.max(1,+document.getElementById('npBet').value||1);
+  const spinCap=+document.getElementById('npSpins').value||0;
+  const rtp=(STATE.NEW&&window.__newRtp)||1.08;            // edge per spin = rtp-1
+  const edge=rtp-1;
+  const winSpins=edge>0?Math.ceil(cap/bet/edge):Infinity;  // spins to accumulate net-win cap
+  el.value=isFinite(winSpins)?Math.min(spinCap,winSpins)+' ('+spinCap+' cap / ~'+winSpins+' net-win)':spinCap+' (spin cap)';
+}
+function refreshWs(){
+  document.querySelectorAll('.wsrow').forEach(row=>{
+    const sy=+row.querySelector('.wssym').value, cn=Math.max(8,+row.querySelector('.wscnt').value||8);
+    row.querySelector('.wspay').value=symPay(sy,cn).toFixed(2);
+  });
+  const a=wsAvgPay();
+  document.getElementById('wsAvg').value=a?a.toFixed(3)+'\u00d7':'0';
+  refreshNp();
+}
+function buildPaytable(){
+  const pt=document.getElementById('ptbl');
+  pt.innerHTML=`<span class="h"></span><span class="h">8&ndash;9</span><span class="h">10&ndash;11</span><span class="h">12&ndash;30</span>`+
+    SYMS.slice(0,9).map((s,i)=>`<span style="align-self:center">${tr(s)}</span>`+
+      [0,1,2].map(t=>`<input type="number" step="0.1" class="pv" data-i="${i}" data-t="${t}" value="${PAYT[i][t]}">`).join('')).join('');
+  const sc=document.getElementById('sctbl');
+  sc.innerHTML=`<span class="h">${tr('scatters')}</span><span class="h">${tr('payout &times;bet')}</span>`+
+    ['4','5','6+'].map((lbl,i)=>`<span style="align-self:center">${lbl}</span><input type="number" step="0.5" class="scv" data-i="${i}" value="${SCATP[i]}">`).join('');
+}
+function orbValsArr(){return document.getElementById('orbVals').value.split(',').map(x=>parseFloat(x.trim())).filter(x=>!isNaN(x));}
+function refreshPercents(){
+  const ov=orbValsArr();
+  document.querySelectorAll('.tbl').forEach(el=>{
+    const ws=[...el.querySelectorAll('.w')].map(i=>+i.value||0);
+    const tot=ws.reduce((a,b)=>a+b,0)||1;
+    el.querySelectorAll('[data-pc]').forEach(s=>{const i=+s.dataset.pc;s.textContent=(ws[i]/tot*100).toFixed(2)+'%';});
+    el.querySelector('[data-wtot]').textContent=tot;
+    // FS symbol weights are locked to the table's base symbol weights.
+    el.querySelectorAll('.fsymw').forEach(inp=>{const i=+inp.dataset.i;inp.value=ws[i]||0;});
+    const fsws=[...el.querySelectorAll('.fsymw')].map(i=>+i.value||0);
+    const fswtot=fsws.reduce((a,b)=>a+b,0)||1;
+    el.querySelectorAll('[data-fspc]').forEach(s=>{const i=+s.dataset.fspc;s.textContent=(fsws[i]/fswtot*100).toFixed(2)+'%';});
+    el.querySelector('[data-fswtot]').textContent=fswtot;
+    const ows=[...el.querySelectorAll('.ow')].map(i=>+i.value||0);
+    const otot=ows.reduce((a,b)=>a+b,0)||1;
+    el.querySelectorAll('[data-ov]').forEach(s=>{const i=+s.dataset.ov;s.textContent=(ov[i]!=null?ov[i]+'\u00d7':'\u2014');});
+    el.querySelectorAll('[data-opc]').forEach(s=>{const i=+s.dataset.opc;s.textContent=(ows[i]/otot*100).toFixed(1)+'%';});
+    let ev=0;for(let i=0;i<ows.length;i++)ev+=(ov[i]||0)*ows[i];ev/=otot;
+    el.querySelector('[data-orbev]').textContent=ev.toFixed(2)+'\u00d7';
+    const fws=[...el.querySelectorAll('.fsw')].map(i=>+i.value||0);
+    const ftot=fws.reduce((a,b)=>a+b,0)||1;
+    el.querySelectorAll('[data-fov]').forEach(x=>{const i=+x.dataset.fov;x.textContent=(ov[i]!=null?ov[i]+'\u00d7':'\u2014');});
+    el.querySelectorAll('[data-fopc]').forEach(x=>{const i=+x.dataset.fopc;x.textContent=(fws[i]/ftot*100).toFixed(1)+'%';});
+    let fev=0;for(let i=0;i<fws.length;i++)fev+=(ov[i]||0)*fws[i];fev/=ftot;
+    el.querySelector('[data-fsorbev]').textContent=fev.toFixed(2)+'\u00d7';
+  });
+}
+function readParams(){
+  return{orbVals:orbValsArr(),fsAward:+fsAward.value,fsRetThr:+fsRetThr.value,fsRetAmt:+fsRetAmt.value,
+    fsCap:+fsCap.value,maxDepth:+maxDepth.value,snMaxWin:+snCap.value,scratch:new Array(9).fill(0),
+    ws:readWinStreak()};
+}
+// Win Streak Assurance config. The payout table is a weighted list of real
+// Blue/Green/Yellow/Purple Gem clusters at the 8- and 10-match tiers.
+function readWinStreak(){
+  const on=document.getElementById('wsOn').checked;
+  const min=Math.max(1,+document.getElementById('wsMin').value||1);
+  const max=Math.max(min,+document.getElementById('wsMax').value||min);
+  const tbl=[...document.querySelectorAll('.wsrow')].map(row=>({
+    sym:+row.querySelector('.wssym').value,
+    cnt:Math.max(8,+row.querySelector('.wscnt').value||8),
+    w:Math.max(0,+row.querySelector('.wsw').value||0)
+  })).filter(e=>e.w>0);
+  return{on,min,max,tbl};
+}
+// Expected payout of one forced win (x bet), for the UI readout.
+function wsAvgPay(){
+  const ws=readWinStreak();if(!ws.tbl.length)return 0;
+  let s=0,t=0;for(const e of ws.tbl){s+=e.w*symPay(e.sym,e.cnt);t+=e.w;}
+  return t?s/t:0;
+}
+function syncPaytable(){
+  document.querySelectorAll('.pv').forEach(inp=>{PAYT[+inp.dataset.i][+inp.dataset.t]=+inp.value;});
+  document.querySelectorAll('.scv').forEach(inp=>{SCATP[+inp.dataset.i]=+inp.value;});
+}
+
+// ---------- run ----------
+let running=false;
+async function run(){
+  if(running)return; running=true;
+  syncPaytable();
+  const P=readParams();
+  const N=+document.getElementById('N').value;
+  const cards=[...document.querySelectorAll('.tbl')];
+  cards.forEach(c=>{c.querySelector('[data-rtp]').classList.add('pending');c.querySelector('[data-rtp]').innerHTML='\u2026<small>%</small>';});
+  const runBtn=document.getElementById('run');runBtn.disabled=true;
+  const prog=document.getElementById('prog'),status=document.getElementById('status');
+  status.textContent=tr('running');
+  const seed=(Math.random()*4294967296)>>>0;
+  const jobs=cards.map((card,ci)=>{
+    const ws=[...card.querySelectorAll('.w')].map(i=>+i.value||0);
+    const fsws=[...card.querySelectorAll('.fsymw')].map(i=>+i.value||0);
+    const ows=[...card.querySelectorAll('.ow')].map(i=>+i.value||0);
+    const fws=[...card.querySelectorAll('.fsw')].map(i=>+i.value||0);
+    const oc=+card.querySelector('.oc').value;
+    const fsoc=+card.querySelector('.fsoc').value;
+    const tiers=TIERS.map((t,ti)=>({label:t.label,bet:t.bet,capX:P.snMaxWin/t.bet,acc:newAcc(),r:makeRng(seed+ci*1013904223+ti*97561+1)}));
+    return{card,ws,fsws,ows,fws,oc,fsoc,tiers};
+  });
+  try{
+    jobs.forEach(job=>{
+      cum(job.ws);cum(job.fsws);cum(job.ows);cum(job.fws);
+    });
+  }catch(e){
+    document.getElementById('status').textContent=tr('error: ')+e.message;
+    running=false;
+    runBtn.disabled=false;
+    return;
+  }
+  const CHUNK=20000; let doneTotal=0; const total=N*jobs.length*TIERS.length;
+  for(const job of jobs){
+    for(const tier of job.tiers){
+      let done=0;
+      while(done<N){
+        const c=Math.min(CHUNK,N-done);
+        runChunk(job.ws,job.ows,job.oc,P,tier.acc,c,tier.r,tier.capX,job.fsws,job.fws,job.fsoc);
+        done+=c; doneTotal+=c;
+        prog.style.width=(doneTotal/total*100).toFixed(1)+'%';
+        await new Promise(r=>setTimeout(r,0));
+      }
+    }
+    render(job.card,job.tiers.map(t=>({label:t.label,bet:t.bet,capX:t.capX,R:finalize(t.acc)})));
+  }
+  status.textContent=(LANG==='zh'?'完成 \u2014 '+N.toLocaleString()+' 次/台 \u00d7 3 个投注档':'done \u2014 '+N.toLocaleString()+' spins/table \u00d7 3 bet tiers');
+  prog.style.width='0%'; runBtn.disabled=false; running=false;
+}
+function tierNote(R){
+  const parts=[];
+  if(R.bOver>0)parts.push(tr('cap hit 1 in ')+Math.round(R.tb/R.bOver).toLocaleString());
+  if(R.fsOver>0&&R.fsSpins>0)parts.push((R.fsOver/R.fsSpins*100).toFixed(1)+tr('% of FS rerolled'));
+  const pins=R.bPin+R.fsPin;
+  if(pins>0)parts.push(pins+tr(' pinned'));
+  return parts.length?parts.join(' \u00b7 '):tr('cap never hit');
+}
+function render(card,tiers){
+  LASTRUN[card.dataset.k]=tiers;
+  const R=tiers[0].R;
+  const rtpEl=card.querySelector('[data-rtp]');
+  rtpEl.classList.remove('pending');
+  rtpEl.innerHTML=(R.rtp*100).toFixed(2)+'<small>%</small>';
+  rtpEl.style.color = Math.abs(R.rtp-0.95)<0.02?'var(--good)':(R.rtp>1.05||R.rtp<0.88?'var(--hot)':'var(--ink)');
+  const mark=card.querySelector('[data-mark]');
+  const pos=Math.max(0,Math.min(100,(R.rtp*100-40)/(160-40)*100));
+  mark.style.display='block'; mark.style.left=pos+'%';
+  card.querySelector('[data-hit]').textContent=(R.hit*100).toFixed(1)+'%';
+  card.querySelector('[data-fs]').textContent=(LANG==='zh'?'1/':'1 in ')+Math.round(1/R.fsr);
+  card.querySelector('[data-fsshare]').textContent=(R.fs/R.rtp*100).toFixed(0)+'%';
+  const de=card.querySelector('[data-dead]');
+  de.textContent=R.fsRounds?(R.deadBonus*100).toFixed(0)+'%':'\u2014';
+  de.style.color=R.deadBonus>0.25?'var(--hot)':(R.deadBonus>0.12?'var(--warn)':'var(--good)');
+  card.querySelector('[data-fshit]').textContent=R.fsRounds?(R.fsHit*100).toFixed(1)+'%':'\u2014';
+  const Nrun=+document.getElementById('N').value||1;
+  card.querySelector('[data-sigma]').textContent=R.sigma.toFixed(1)+'\u00d7';
+  card.querySelector('[data-band]').textContent='\u00b1'+(1.96*R.sigma/Math.sqrt(Nrun)*100).toFixed(1)+tr('pt');
+  const wsEl=card.querySelector('[data-ws]');
+  wsEl.textContent=R.wsForced?('+'+(R.wsRtp*100).toFixed(1)+tr('pt')):'\u2014';
+  wsEl.title=R.wsForced?(tr('forced win rate')+': 1 in '+Math.round(1/R.wsRate)):'';
+  tiers.forEach((t,i)=>{
+    const b=card.querySelector('[data-trtp="'+i+'"]');
+    b.textContent=(t.R.rtp*100).toFixed(2)+'%';
+    b.style.color = t.R.rtp < R.rtp-0.02 ? 'var(--warn)' : 'var(--ink)';
+    card.querySelector('[data-tnote="'+i+'"]').textContent=tierNote(t.R);
+  });
+  const mx=Math.max(R.base,R.scat,R.fs,1e-9);
+  card.querySelector('[data-b-base]').style.width=(R.base/mx*100)+'%';
+  card.querySelector('[data-b-scat]').style.width=(R.scat/mx*100)+'%';
+  card.querySelector('[data-b-fs]').style.width=(R.fs/mx*100)+'%';
+  card.querySelector('[data-v-base]').textContent=(R.base*100).toFixed(1)+'%';
+  card.querySelector('[data-v-scat]').textContent=(R.scat*100).toFixed(1)+'%';
+  card.querySelector('[data-v-fs]').textContent=(R.fs*100).toFixed(1)+'%';
+  card.querySelector('[data-ex-fs]').textContent=R.maxFS>0?('\u00d7'+(1+R.maxFS)+'  ('+R.maxFS+' total)'):'\u2014';
+  card.querySelector('[data-ex-base]').textContent=R.maxBase>0?('\u00d7'+(1+R.maxBase)+'  ('+R.maxBase+' orbs)'):'\u2014';
+  card.querySelector('[data-ex-casc]').textContent=R.maxCasc;
+  card.querySelector('[data-ex-win]').textContent=Math.round(R.maxWin).toLocaleString()+'\u00d7';
+  card.querySelector('[data-av-fs]').textContent=R.avgFS>0?('\u00d7'+(1+R.avgFS).toFixed(2)+'  ('+R.avgFS.toFixed(1)+' total)'):'\u2014';
+  card.querySelector('[data-av-base]').textContent=R.avgBase>0?('\u00d7'+(1+R.avgBase).toFixed(2)+'  ('+R.avgBase.toFixed(1)+' orbs)'):'\u2014';
+  card.querySelector('[data-av-casc]').textContent=R.avgCasc>0?R.avgCasc.toFixed(1):'\u2014';
+  card.querySelector('[data-av-win]').textContent=R.avgWin>0?R.avgWin.toFixed(2)+'\u00d7':'\u2014';
+  const cmx=Math.max(...R.sym,1e-9);
+  card.querySelector('[data-contrib]').innerHTML=SYMS.slice(0,9).map((s,i)=>
+    `<div class="crow"><span>${s.replace(' Gem','')}</span><div class="track"><i style="width:${R.sym[i]/cmx*100}%"></i></div><span style="text-align:right">${(R.sym[i]*100).toFixed(2)}%</span></div>`).join('');
+}
+
+// ---------- config export / import ----------
+function gatherConfig(){
+  const tables={};
+  document.querySelectorAll('.tbl').forEach(el=>{
+    tables[el.dataset.k]={
+      w:[...el.querySelectorAll('.w')].map(i=>+i.value||0),
+      fsW:[...el.querySelectorAll('.w')].map(i=>+i.value||0),   // locked to base symbol weights
+      orb:[...el.querySelectorAll('.ow')].map(i=>+i.value||0),
+      oc:+el.querySelector('.oc').value,
+      fsOrb:[...el.querySelectorAll('.fsw')].map(i=>+i.value||0),
+      fsOc:+el.querySelector('.fsoc').value
+    };
+  });
+  const wsr=[...document.querySelectorAll('.wsrow')].map(r=>({sym:+r.querySelector('.wssym').value,cnt:+r.querySelector('.wscnt').value,w:+r.querySelector('.wsw').value}));
+  return{
+    app:"olympus-rtp-simulator", version:3,
+    N:+document.getElementById('N').value,
+    globals:{orbVals:document.getElementById('orbVals').value,
+      fsAward:+fsAward.value,fsRetThr:+fsRetThr.value,fsRetAmt:+fsRetAmt.value,
+      fsCap:+fsCap.value,maxDepth:+maxDepth.value,snMaxWin:+snCap.value},
+    winStreak:{on:document.getElementById('wsOn').checked,
+      min:+document.getElementById('wsMin').value,max:+document.getElementById('wsMax').value,table:wsr},
+    newPlayer:{spinCap:+document.getElementById('npSpins').value,
+      netWinCap:+document.getElementById('npNetWin').value,bet:+document.getElementById('npBet').value},
+    paytable:{regular:PAYT.map(r=>r.slice()),scatter:SCATP.slice()},
+    tables
+  };
+}
+function migrateSavedOrbPool(cfg){
+  // Saved configs may carry the older 10-value orb pool (2..50) whose last three
+  // weights are inactive. Fold them back to the live 7-value set.
+  const wide=[2,3,4,5,6,8,10,15,25,50];
+  const values=String(cfg.globals?.orbVals||'').split(',').map(Number);
+  if(values.length!==wide.length||values.some((v,i)=>v!==wide[i]))return cfg;
+  const next=JSON.parse(JSON.stringify(cfg));
+  next.globals.orbVals=ORB_VALUES.join(',');
+  for(const table of Object.values(next.tables||{})){
+    for(const key of ['orb','fsOrb'])if(Array.isArray(table[key])&&table[key].length===10)table[key]=table[key].slice(0,7);
+  }
+  return next;
+}
+function applyConfig(cfg){
+  try{
+    if(!cfg||typeof cfg!=='object')throw new Error('not an object');
+    cfg=migrateSavedOrbPool(cfg);
+    const g=cfg.globals||{};
+    if(g.orbVals!=null)document.getElementById('orbVals').value=g.orbVals;
+    if(g.fsAward!=null)fsAward.value=g.fsAward;
+    if(g.fsRetThr!=null)fsRetThr.value=g.fsRetThr;
+    if(g.fsRetAmt!=null)fsRetAmt.value=g.fsRetAmt;
+    if(g.fsCap!=null)fsCap.value=g.fsCap;
+    if(g.maxDepth!=null)maxDepth.value=g.maxDepth;
+    const sn=(g.snMaxWin!=null)?g.snMaxWin:g.snCap;
+    if(sn!=null)snCap.value=sn;
+    if(cfg.paytable){
+      if(Array.isArray(cfg.paytable.regular))PAYT=cfg.paytable.regular.map(r=>r.slice());
+      if(Array.isArray(cfg.paytable.scatter))SCATP=cfg.paytable.scatter.slice();
+    }
+    if(cfg.tables){for(const k of ['NEW','COLD','NORMAL','HOT'])if(cfg.tables[k]){STATE[k]=cfg.tables[k];
+      STATE[k].fsW=(STATE[k].w||[]).slice();   // FS symbol weights are locked to base
+      if(!Array.isArray(STATE[k].fsOrb))STATE[k].fsOrb=(STATE[k].orb||[]).slice();
+      if(STATE[k].fsOc==null)STATE[k].fsOc=STATE[k].oc;}}
+    if(cfg.winStreak){const ws=cfg.winStreak;
+      if(ws.on!=null)document.getElementById('wsOn').checked=!!ws.on;
+      if(ws.min!=null)document.getElementById('wsMin').value=ws.min;
+      if(ws.max!=null)document.getElementById('wsMax').value=ws.max;
+      if(Array.isArray(ws.table)&&ws.table.length)WSROWS=ws.table.map(e=>({sym:+e.sym||0,cnt:+e.cnt||8,w:+e.w||0}));}
+    if(cfg.newPlayer){const np=cfg.newPlayer;
+      if(np.spinCap!=null)document.getElementById('npSpins').value=np.spinCap;
+      if(np.netWinCap!=null)document.getElementById('npNetWin').value=np.netWinCap;
+      if(np.bet!=null)document.getElementById('npBet').value=np.bet;}
+    if(cfg.N){const sel=document.getElementById('N');[...sel.options].forEach(o=>{if(+o.value===+cfg.N)sel.value=o.value;});}
+    buildCols(); buildPaytable(); buildWsTable(); refreshPercents();
+    document.getElementById('status').textContent=tr('config imported');
+  }catch(e){alert(tr('Import failed: ')+e.message);}
+}
+function downloadText(filename,text,mime){
+  try{
+    const blob=new Blob([text],{type:mime||'application/json'});
+    const url=URL.createObjectURL(blob);
+    const a=document.createElement('a');a.href=url;a.download=filename;document.body.appendChild(a);a.click();a.remove();
+    setTimeout(()=>URL.revokeObjectURL(url),1000);
+  }catch(e){alert(tr('Download blocked here \u2014 copy the JSON from the box instead.'));}
+}
+
+const ORB_VALUES=[2,3,4,5,6,8,10];
+
+// ---------- dynamic table journey (governor) ----------
+function journeyTables(){
+  const t={};
+  document.querySelectorAll('.tbl').forEach(card=>{
+    const ws=[...card.querySelectorAll('.w')].map(i=>+i.value||0);
+    const fsws=[...card.querySelectorAll('.fsymw')].map(i=>+i.value||0);
+    const ows=[...card.querySelectorAll('.ow')].map(i=>+i.value||0);
+    const fws=[...card.querySelectorAll('.fsw')].map(i=>+i.value||0);
+    t[card.dataset.k]={symC:cum(ws),fsSymC:cum(fsws),orbC:cum(ows),oc:+card.querySelector('.oc').value,
+      fsOrbC:cum(fws),fsOc:+card.querySelector('.fsoc').value};
+  });
+  return t;
+}
+function spinWinOnce(tb,ov,P,capX,r,dummy,st){
+  let res,pay,ok=false;
+  for(let a=0;a<4;a++){res=oneSpin(tb.symC,tb.orbC,ov,tb.oc,P,true,r);pay=res.sym+res.scat;if(pay<=capX){ok=true;break;}}
+  if(!ok)pay=capX;
+  // Win Streak Assurance - same rule as runChunk, with the counter carried in `st`
+  const WS=P.ws;
+  if(WS&&WS.on&&WS.tbl.length&&st){
+    if(pay<=0){
+      st.c++;
+      if(st.t<=0)st.t=wsDraw(WS,r);
+      if(st.c>=st.t){
+        const e=wsPick(WS,r);
+        let fres=null,fpay=0,fok=false;
+        for(let a=0;a<4;a++){fres=oneSpin(tb.symC,tb.orbC,ov,tb.oc,P,true,r,e.sym,e.cnt);fpay=fres.sym+fres.scat;if(fpay<=capX){fok=true;break;}}
+        if(!fok)fpay=capX;
+        res=fres;pay=fpay;st.c=0;st.t=wsDraw(WS,r);
+      }
+    }else{st.c=0;st.t=wsDraw(WS,r);}
+  }
+  let w=pay;
+  if(res.trig){const f=fsRoundSN1(tb.fsSymC||tb.symC,tb.fsOrbC||tb.orbC,ov,(tb.fsOc!=null?tb.fsOc:tb.oc),P,capX,r,dummy);w+=f.total;}
+  return w;
+}
+function simulateJourney(){
+  syncPaytable();
+  const P=readParams(); const ov=P.orbVals;
+  const tbls=journeyTables();
+  const gi=id=>+document.getElementById(id).value;
+  const len=Math.max(1000,gi('jLen')|0), W=Math.max(20,gi('jWin')|0), bet=Math.max(1,gi('jBet')|0);
+  const capX=P.snMaxWin/bet;
+  const gGlobal=gi('jGlobal'), target=gi('gTarget'), maxP=gi('gMaxP'), minP=gi('gMinP'), maxG=gi('gMaxG'), minG=gi('gMinG'), floor=gi('gFloor');
+  const warm=Math.max(0,gi('jWarm')|0), winCap=50;
+  const r=makeRng((Math.random()*4294967296)>>>0), dummy=newAcc();
+  let state='NORMAL'; const win=[]; let wsum=0,total=0,trans=0,floorHit=0,rMin=1e9,rMax=-1e9;
+  const wsSt={c:0,t:0};   // Win Streak counter follows the player, not the table
+  const counts={COLD:0,NORMAL:0,HOT:0};
+  const nS=Math.min(900,len), every=Math.max(1,Math.floor(len/nS)), samples=[];
+  const globalForce = gGlobal>maxG?'COLD':(gGlobal<minG?'HOT':null);
+  for(let i=0;i<len;i++){
+    const w=spinWinOnce(tbls[state],ov,P,capX,r,dummy,wsSt);
+    total+=w; counts[state]++;
+    const wg=(winCap>0&&w>winCap)?winCap:w;   // winsorized for governor only
+    win.push(wg); wsum+=wg; if(win.length>W)wsum-=win.shift();
+    const roll=wsum/win.length*100;
+    if(win.length>=W){ if(roll<rMin)rMin=roll; if(roll>rMax)rMax=roll; }
+    let ns=state;
+    if(i<warm){ /* governor inactive during warm-up */ }
+    else if(globalForce){ ns=globalForce; }
+    else{
+      if(state==='NORMAL'){ if(roll>maxP)ns='COLD'; else if(roll<minP)ns='HOT'; }
+      else if(state==='COLD'){ if(roll<=target)ns='NORMAL'; }
+      else if(state==='HOT'){ if(roll>=target)ns='NORMAL'; }
+      if(roll<floor){ ns='HOT'; floorHit++; }
+    }
+    if(ns!==state){trans++; state=ns;}
+    if(i%every===0||i===len-1) samples.push({i,roll,state});
+  }
+  renderJourney({len,W,bet,eff:total/len*100,counts,trans,rMin,rMax,floorHit,samples,thr:{target,maxP,minP,floor},globalForce});
+}
+function buildJourneyChart(o){
+  const w=900,h=280,padL=44,padR=54,padT=16,padB=30, iw=w-padL-padR, ih=h-padT-padB;
+  let lo=Math.floor((o.thr.floor-12)/5)*5, hi=Math.ceil((o.thr.maxP+22)/5)*5;
+  const X=i=>padL+i/Math.max(1,o.len-1)*iw, Y=v=>Math.max(padT,Math.min(padT+ih,padT+(1-(v-lo)/(hi-lo))*ih));
+  const col={COLD:'var(--cold)',NORMAL:'var(--normal)',HOT:'var(--hot)'};
+  let bands='';
+  for(let k=0;k<o.samples.length;k++){const s=o.samples[k],x0=X(s.i),x1=k+1<o.samples.length?X(o.samples[k+1].i):padL+iw;
+    bands+=`<rect x="${x0.toFixed(1)}" y="${padT}" width="${(x1-x0+0.7).toFixed(1)}" height="${ih}" fill="${col[s.state]}" opacity="0.14"/>`;}
+  const MONO='ui-monospace,Menlo,monospace';
+  const thrLine=(v,c,lbl)=> (v>=lo&&v<=hi)?`<line x1="${padL}" y1="${Y(v).toFixed(1)}" x2="${padL+iw}" y2="${Y(v).toFixed(1)}" stroke="${c}" stroke-width="1" stroke-dasharray="4 4" opacity="0.7"/><text x="${padL+iw+3}" y="${(Y(v)+3).toFixed(1)}" fill="${c}" font-size="9" font-family="${MONO}">${lbl}</text>`:'';
+  const thr=thrLine(o.thr.maxP,'var(--cold)',tr('max ')+o.thr.maxP)+thrLine(o.thr.target,'var(--gold)',tr('tgt ')+o.thr.target)+thrLine(o.thr.minP,'var(--hot)',tr('min ')+o.thr.minP)+thrLine(o.thr.floor,'var(--faint)',tr('floor ')+o.thr.floor);
+  let yax='';for(let v=lo;v<=hi;v+=5)yax+=`<text x="${padL-6}" y="${(Y(v)+3).toFixed(1)}" fill="var(--faint)" font-size="9" font-family="${MONO}" text-anchor="end">${v}</text><line x1="${padL}" y1="${Y(v).toFixed(1)}" x2="${padL+iw}" y2="${Y(v).toFixed(1)}" stroke="var(--line)" stroke-width="0.5" opacity="0.35"/>`;
+  let xax='';for(let f=0;f<=1.0001;f+=0.25){const xi=Math.round(f*(o.len-1));xax+=`<text x="${X(xi).toFixed(1)}" y="${h-9}" fill="var(--faint)" font-size="9" font-family="${MONO}" text-anchor="middle">${xi.toLocaleString()}</text>`;}
+  let d='';o.samples.forEach((s,k)=>{d+=(k?'L':'M')+X(s.i).toFixed(1)+' '+Y(s.roll).toFixed(1)+' ';});
+  const line=`<path d="${d}" fill="none" stroke="var(--ink)" stroke-width="1.4"/>`;
+  const legend=`<g font-size="10" font-family="var(--sans)"><rect x="${padL}" y="3" width="9" height="9" fill="var(--cold)" opacity="0.6"/><text x="${padL+13}" y="11" fill="var(--muted)">${tr('Cold')}</text><rect x="${padL+50}" y="3" width="9" height="9" fill="var(--normal)" opacity="0.6"/><text x="${padL+63}" y="11" fill="var(--muted)">${tr('Normal')}</text><rect x="${padL+116}" y="3" width="9" height="9" fill="var(--hot)" opacity="0.6"/><text x="${padL+129}" y="11" fill="var(--muted)">${tr('Hot')}</text><text x="${padL+iw}" y="11" fill="var(--muted)" text-anchor="end">${LANG==='zh'?'个人滚动 RTP（最近 '+o.W+' 次）':'rolling personal RTP (last '+o.W+' spins)'}</text></g>`;
+  return `<svg viewBox="0 0 ${w} ${h}" style="width:100%;height:auto;background:var(--panel2);border:1px solid var(--line);border-radius:8px">${bands}${yax}${thr}${line}${legend}${xax}<text x="${padL+iw/2}" y="${h-1}" fill="var(--faint)" font-size="9" text-anchor="middle" font-family="${MONO}">${tr('base spins')}</text></svg>`;
+}
+function renderJourney(o){
+  LASTJ=o;
+  const box=document.getElementById('jResults'); box.style.display='block';
+  const pct=k=>(o.counts[k]/o.len*100).toFixed(1)+'%';
+  const stat=(l,v,c)=>`<div style="text-align:center;min-width:80px"><div style="font-family:ui-monospace,Menlo,monospace;font-size:22px;font-weight:700;color:${c||'var(--ink)'}">${v}</div><div class="eyebrow" style="margin-top:2px">${l}</div></div>`;
+  const effC=o.eff>=o.thr.minP&&o.eff<=o.thr.maxP?'var(--gold)':(o.eff>o.thr.maxP?'var(--cold)':'var(--hot)');
+  const rng=(o.rMin===1e9?'-':o.rMin.toFixed(0))+'\u2013'+(o.rMax===-1e9?'-':o.rMax.toFixed(0))+'%';
+  const stats=`<div style="display:flex;justify-content:space-around;flex-wrap:wrap;gap:14px;margin-bottom:14px">${stat(tr('Effective RTP'),o.eff.toFixed(1)+'%',effC)}${stat(tr('% Cold'),pct('COLD'),'var(--cold)')}${stat(tr('% Normal'),pct('NORMAL'),'var(--normal)')}${stat(tr('% Hot'),pct('HOT'),'var(--hot)')}${stat(tr('Transitions'),o.trans.toLocaleString(),'var(--ink)')}${stat(tr('Rolling range'),rng,'var(--muted)')}</div>`;
+  const note=o.globalForce?`<div class="eyebrow" style="margin-top:8px;color:var(--hot)">${LANG==='zh'?'全局 RTP 覆盖生效 &rarr; 所有玩家强制切到 '+tname(o.globalForce)+'（个人调控器被绕过）。':'Global RTP override active &rarr; all users forced '+o.globalForce+' (personal governor bypassed).'}</div>`:(o.floorHit?`<div class="eyebrow" style="margin-top:8px;color:var(--hot)">${LANG==='zh'?'rtp_floor 底线保护触发 '+o.floorHit.toLocaleString()+' 次 &mdash; 滚动 RTP 跌破 '+o.thr.floor+'% 并强制切到热台。':'rtp_floor guard fired '+o.floorHit.toLocaleString()+'\u00d7 &mdash; rolling RTP dipped below '+o.thr.floor+'% and forced Hot.'}</div>`:`<div class="eyebrow" style="margin-top:8px">${LANG==='zh'?'rtp_floor（'+o.thr.floor+'%）从未触发 &mdash; 冷台始终高于该底线。':'rtp_floor ('+o.thr.floor+'%) never bound &mdash; Cold table stays above it.'}</div>`);
+  box.innerHTML=stats+buildJourneyChart(o)+note;
+}
+
+// ---------- large-R (whale) population stress test ----------
+function poolWin(tb,ov,P,capX,r,dummy,spins,perPlayer){let s=0;const st={c:0,t:0};
+  for(let i=0;i<spins;i++){if(perPlayer&&i%perPlayer===0){st.c=0;st.t=0;}s+=spinWinOnce(tb,ov,P,capX,r,dummy,st);}return s;}
+function pctile(arr,p){const a=arr.slice().sort((x,y)=>x-y);const i=(a.length-1)*p;const lo=Math.floor(i),hi=Math.ceil(i);return a[lo]+(a[hi]-a[lo])*(i-lo);}
+function simulateWhales(){
+  syncPaytable();
+  const P=readParams(), ov=P.orbVals, tb=journeyTables().NORMAL;
+  const gi=id=>+document.getElementById(id).value;
+  const nReg=Math.max(10,gi('wReg')|0), S=Math.max(20,gi('wSpins')|0), regBet=Math.max(1,gi('wRegBet')|0);
+  const nWh=Math.max(0,gi('wWhales')|0), whMult=Math.max(1,gi('wWhaleMult')|0), days=Math.max(20,gi('wDays')|0);
+  const whBet=regBet*whMult, capReg=P.snMaxWin/regBet, capWh=P.snMaxWin/whBet;
+  const r=makeRng((Math.random()*4294967296)>>>0), dummy=newAcc();
+  const regWagerD=nReg*S*regBet, whWagerD=nWh*S*whBet;
+  const whShare=whWagerD/(regWagerD+whWagerD)*100;
+  const pooled=[], regOnly=[];
+  for(let d=0;d<days;d++){
+    const regWinX=poolWin(tb,ov,P,capReg,r,dummy,nReg*S,S);
+    const whWinX=nWh>0?poolWin(tb,ov,P,capWh,r,dummy,nWh*S,S):0;
+    const regWinD=regWinX*regBet, whWinD=whWinX*whBet;
+    pooled.push((regWinD+whWinD)/(regWagerD+whWagerD)*100);
+    regOnly.push(regWinD/regWagerD*100);
+  }
+  const stat=a=>({mean:a.reduce((x,y)=>x+y,0)/a.length,sd:Math.sqrt(a.reduce((s,v)=>s+v*v,0)/a.length-(a.reduce((x,y)=>x+y,0)/a.length)**2),p5:pctile(a,0.05),p95:pctile(a,0.95),min:Math.min(...a),max:Math.max(...a)});
+  renderWhales({whShare,nReg,nWh,whMult,S,pooled:stat(pooled),regOnly:stat(regOnly)});
+}
+function buildWhaleChart(o){
+  const w=900,h=150,padL=12,padR=12,padT=44,padB=26,iw=w-padL-padR,ih=h-padT-padB;
+  const all=[o.pooled.p5,o.pooled.p95,o.regOnly.p5,o.regOnly.p95,95];
+  let lo=Math.floor((Math.min(...all)-3)/5)*5, hi=Math.ceil((Math.max(...all)+3)/5)*5;
+  const X=v=>padL+(v-lo)/(hi-lo)*iw;
+  const bar=(y,s,color,label)=>{
+    const x5=X(s.p5),x95=X(s.p95),xm=X(s.mean);
+    return `<rect x="${x5.toFixed(1)}" y="${y}" width="${(x95-x5).toFixed(1)}" height="20" rx="4" fill="${color}" opacity="0.28"/>`
+      +`<line x1="${xm.toFixed(1)}" y1="${y-3}" x2="${xm.toFixed(1)}" y2="${y+23}" stroke="${color}" stroke-width="2"/>`
+      +`<text x="${padL}" y="${y-5}" fill="var(--muted)" font-size="11" font-family="var(--sans)">${label} &mdash; mean ${s.mean.toFixed(1)}%, 5&ndash;95% ${s.p5.toFixed(1)}&ndash;${s.p95.toFixed(1)}%</text>`;
+  };
+  let ax='';for(let v=lo;v<=hi;v+=5)ax+=`<line x1="${X(v).toFixed(1)}" y1="${padT}" x2="${X(v).toFixed(1)}" y2="${padT+ih}" stroke="var(--line)" stroke-width="0.5" opacity="0.4"/><text x="${X(v).toFixed(1)}" y="${h-8}" fill="var(--faint)" font-size="9" font-family="ui-monospace,monospace" text-anchor="middle">${v}</text>`;
+  const tgt=`<line x1="${X(95).toFixed(1)}" y1="${padT}" x2="${X(95).toFixed(1)}" y2="${padT+ih}" stroke="var(--gold)" stroke-width="1" stroke-dasharray="4 4" opacity="0.7"/>`;
+  return `<svg viewBox="0 0 ${w} ${h}" style="width:100%;height:auto;background:var(--panel2);border:1px solid var(--line);border-radius:8px">${ax}${tgt}${bar(padT+4,o.pooled,'var(--hot)',tr('Blended (all users pooled)'))}${bar(padT+ih/2+8,o.regOnly,'var(--cold)',tr('Room-segmented (regular room only)'))}</svg>`;
+}
+function renderWhales(o){
+  LASTW=o;
+  const box=document.getElementById('wResults');box.style.display='block';
+  const stat=(l,v,c)=>`<div style="text-align:center;min-width:90px"><div style="font-family:ui-monospace,Menlo,monospace;font-size:20px;font-weight:700;color:${c||'var(--ink)'}">${v}</div><div class="eyebrow" style="margin-top:2px">${l}</div></div>`;
+  const amp=(o.pooled.sd/Math.max(0.01,o.regOnly.sd));
+  const stats=`<div style="display:flex;justify-content:space-around;flex-wrap:wrap;gap:14px;margin-bottom:12px">
+    ${stat(tr('Whale wager share'),o.whShare.toFixed(1)+'%','var(--hot)')}
+    ${stat(tr('Blended RTP \u03c3'),o.pooled.sd.toFixed(1)+tr('pt'),'var(--hot)')}
+    ${stat(tr('Segmented RTP \u03c3'),o.regOnly.sd.toFixed(1)+tr('pt'),'var(--cold)')}
+    ${stat(tr('Volatility \u00d7'),amp.toFixed(1)+'\u00d7','var(--ink)')}
+    ${stat(tr('Blended worst day'),o.pooled.min.toFixed(1)+'%','var(--muted)')}
+    ${stat(tr('Blended best day'),o.pooled.max.toFixed(1)+'%','var(--muted)')}</div>`;
+  const take=`<div class="eyebrow" style="margin-top:10px">${LANG==='zh'?o.nWh+' 位大 R 以 '+o.whMult+'\u00d7 投注控制了 '+o.whShare.toFixed(0)+'% 的投注额：与常规玩家汇总时，逐日上报 RTP 摆动<b style="color:var(--hot)">宽 '+amp.toFixed(1)+'\u00d7</b>（\u00b1'+((o.pooled.p95-o.pooled.p5)/2).toFixed(1)+'点 对 \u00b1'+((o.regOnly.p95-o.regOnly.p5)/2).toFixed(1)+'点）。按投注档分房可让常规房 RTP 保持稳定。':o.nWh+' whales at '+o.whMult+'\u00d7 bet control '+o.whShare.toFixed(0)+'% of wager: day-to-day reported RTP swings <b style="color:var(--hot)">'+amp.toFixed(1)+'\u00d7 wider</b> when pooled with regular players (\u00b1'+((o.pooled.p95-o.pooled.p5)/2).toFixed(1)+'pt vs \u00b1'+((o.regOnly.p95-o.regOnly.p5)/2).toFixed(1)+'pt). Bet-range rooms keep the regular room\'s RTP stable.'}</div>`;
+  box.innerHTML=stats+buildWhaleChart(o)+take;
+}
+
+// wire up
+const LS_KEY='olympus_fs_split_cfg_v1';
+function hasLS(){try{return typeof localStorage!=='undefined'&&!!localStorage;}catch(e){return false;}}
+function saveLocal(){try{if(!hasLS())return;syncPaytable();localStorage.setItem(LS_KEY,JSON.stringify(gatherConfig()));}catch(e){}}
+function loadLocal(){try{if(!hasLS())return null;const t=localStorage.getItem(LS_KEY);return t?JSON.parse(t):null;}catch(e){return null;}}
+let _saveTimer=null;
+function clearLocal(){try{clearTimeout(_saveTimer);if(hasLS())localStorage.removeItem(LS_KEY);}catch(e){}}
+function scheduleSave(){clearTimeout(_saveTimer);_saveTimer=setTimeout(saveLocal,400);}
+function initSectToggles(){
+  const KEY='olympus_sections_v1';
+  let st={};try{st=JSON.parse(localStorage.getItem(KEY)||'{}');}catch(e){}
+  document.querySelectorAll('details.sect').forEach((el,i)=>{
+    if(st[i]!=null)el.open=!!st[i];
+    el.addEventListener('toggle',()=>{
+      const cur={};document.querySelectorAll('details.sect').forEach((x,j)=>cur[j]=x.open);
+      try{localStorage.setItem(KEY,JSON.stringify(cur));}catch(e){}
+    });
+  });
+}
+function init(){
+  initSectToggles();
+  buildCols(); buildPaytable(); buildWsTable();
+  syncPaytable(); curDefault=gatherConfig();
+  const _saved=loadLocal();
+  if(_saved){try{applyConfig(_saved);document.getElementById('status').textContent=tr('restored last session \u2014 Reset to defaults to clear');}catch(e){}}
+  document.getElementById('run').onclick=run;
+  document.getElementById('langBtn').onclick=()=>setLang(LANG==='en'?'zh':'en');
+  document.getElementById('setdef').onclick=()=>{
+    syncPaytable(); curDefault=gatherConfig(); saveLocal();
+    document.getElementById('status').textContent=tr('saved \u2014 will persist on reopen (local file only)');
+  };
+  document.getElementById('reset').onclick=()=>{
+    clearLocal();
+    applyConfig(JSON.parse(JSON.stringify(curDefault)));
+    document.getElementById('status').textContent=tr('reset to built-in defaults (saved session cleared)');
+  };
+  document.getElementById('cfgExport').onclick=()=>{syncPaytable();document.getElementById('cfgbox').value=JSON.stringify(gatherConfig(),null,2);};
+  document.getElementById('cfgDownload').onclick=()=>{syncPaytable();const ts=new Date().toISOString().slice(0,19).replace(/[:T]/g,'-');downloadText('olympus-config-'+ts+'.json',JSON.stringify(gatherConfig(),null,2));};
+  document.getElementById('cfgImport').onclick=()=>{const t=document.getElementById('cfgbox').value.trim();if(!t){alert(tr('Paste a config into the box first.'));return;}try{applyConfig(JSON.parse(t));saveLocal();}catch(e){alert(tr('Invalid JSON: ')+e.message);}};
+  document.getElementById('cfgUpload').onclick=()=>document.getElementById('cfgFile').click();
+  document.getElementById('cfgFile').onchange=e=>{const f=e.target.files[0];if(!f)return;const rd=new FileReader();rd.onload=()=>{document.getElementById('cfgbox').value=rd.result;try{applyConfig(JSON.parse(rd.result));saveLocal();}catch(err){alert(tr('Invalid JSON file: ')+err.message);}};rd.readAsText(f);e.target.value='';};
+  document.getElementById('jRun').onclick=()=>{const s=document.getElementById('jStatus');s.textContent=tr('simulating\u2026');setTimeout(()=>{try{simulateJourney();s.textContent=tr('done');}catch(e){s.textContent=tr('error: ')+e.message;}},20);};
+  document.getElementById('wRun').onclick=()=>{const s=document.getElementById('wStatus');s.textContent=tr('simulating population\u2026');setTimeout(()=>{try{simulateWhales();s.textContent=tr('done');}catch(e){s.textContent=tr('error: ')+e.message;}},20);};
+  document.addEventListener('input',e=>{if(e.target.matches('.w,.fsymw,.ow,#orbVals'))refreshPercents();
+    if(e.target.matches('.wscnt,.wsw,#wsMin,#wsMax,#npSpins,#npNetWin,#npBet'))refreshWs();scheduleSave();});
+  document.addEventListener('change',e=>{if(e.target.matches('.wssym,.wscnt,.wsw,#wsOn'))refreshWs();});
+  document.addEventListener('change',e=>{
+    if(document.getElementById('autobal').checked){
+      if(e.target.matches('.w')) autoBalance(e.target.closest('.tbl'), e.target, '.w');
+      else if(e.target.matches('.fsymw')) autoBalance(e.target.closest('.tbl'), e.target, '.fsymw');
+      else if(e.target.matches('.ow')) autoBalance(e.target.closest('.tbl'), e.target, '.ow');
+      else if(e.target.matches('.fsw')) autoBalance(e.target.closest('.tbl'), e.target, '.fsw');
+    }
+    scheduleSave();
+  });
+}
+init();
+</script>
+</body>
+</html>
